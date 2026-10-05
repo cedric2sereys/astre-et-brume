@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { SessionService } from '../core/session.service';
 import { AgentError, AgentService } from '../core/agent.service';
 import { ChatHistoryService } from '../core/chat-history.service';
+import { MarkdownPipe } from '../core/markdown.pipe';
 
 interface Message {
   from: 'agent' | 'user';
@@ -15,7 +16,7 @@ const GREETING =
 
 @Component({
   selector: 'app-conversation-page',
-  imports: [FormsModule],
+  imports: [FormsModule, MarkdownPipe],
   template: `
     <section class="wrap">
       <header class="card profile">
@@ -38,7 +39,7 @@ const GREETING =
           @if (m.from === 'agent') {
             <div class="bubble agent">
               <span class="eyebrow">L'agent</span>
-              <p>{{ m.text }}</p>
+              <div class="md" [innerHTML]="m.text | markdown"></div>
             </div>
           } @else {
             <div class="bubble user"><p>{{ m.text }}</p></div>

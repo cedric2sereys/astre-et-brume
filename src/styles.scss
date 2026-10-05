@@ -148,3 +148,46 @@ input[type='date'].input, input[type='time'].input { color-scheme: dark; }
   font-size: 0.95rem;
   margin: -0.3rem 0 1rem;
 }
+
+/* ---------- Formatted agent replies (Markdown rendered as HTML) ----------
+   Global because the HTML is inserted with [innerHTML], which component styles don't reach. */
+
+.md {
+  font-size: 1.1rem;
+  line-height: 1.75;
+
+  > :first-child { margin-top: 0; }
+  > :last-child { margin-bottom: 0; }
+
+  p { margin: 0 0 0.85em; }
+  strong { color: var(--gold-soft); font-weight: 500; }
+  em { font-style: italic; }
+
+  ul, ol { margin: 0 0 0.85em; padding-left: 1.4em; }
+  li { margin-bottom: 0.3em; }
+  li::marker { color: var(--gold); }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 1.3rem;
+    margin: 1em 0 0.4em;
+  }
+
+  blockquote {
+    margin: 0 0 0.85em;
+    padding-left: 1em;
+    border-left: 2px solid var(--gold-dim);
+    color: var(--muted);
+  }
+
+  a { color: var(--gold-soft); }
+  hr { border: none; border-top: 1px solid var(--border); margin: 1.2em 0; }
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    background: var(--input);
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+  }
+}
