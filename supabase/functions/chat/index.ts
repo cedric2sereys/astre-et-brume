@@ -1,8 +1,8 @@
 // Supabase Edge Function "chat": the Astre & Brume agent, powered by Google Gemini (free tier)
 // and FreeAstroAPI (natal chart + personal daily horoscope with transits, free tier).
 //
-// The browser sends { message, timezone }. This function checks who the user is, loads their
-// profile and recent history (with the user's own rights, so RLS applies), makes sure the
+// The browser sends { message, timezone, conversation_id? }. This function checks who the user is, loads their
+// profile and that conversation's recent history (with the user's own rights, so RLS applies), makes sure the
 // natal chart and today's horoscope are available (cached in astro_readings to stay within
 // FreeAstroAPI's 80 requests/day), asks Gemini for a reply grounded in that data, then saves
 // both messages and returns the reply.
@@ -66,6 +66,17 @@ function json(body: unknown, status = 200): Response {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** A conversation's title: its first message, cut at a word boundary. */
+function conversationTitle(firstMessage: string): string {
+  const oneLine = firstMessage.replace(/\s+/g, ' ').trim();
+  if (oneLine.length <= 60) return oneLine;
+  const cut = oneLine.slice(0, 60);
+  const space = cut.lastIndexOf(' ');
+  return `${space > 30 ? cut.slice(0, space) : cut}…`;
 }
 
 function isValidTimeZone(tz: unknown): tz is string {
@@ -376,35 +387,51 @@ Deno.serve(async (req) => {
   // --- Input ---------------------------------------------------------------------
   let message: string;
   let browserTimeZone: unknown;
+  let conversationId: string | null;
   try {
     const body = await req.json();
     message = String(body?.message ?? '').trim();
     browserTimeZone = body?.timezone;
+    conversationId = typeof body?.conversation_id === 'string' ? body.conversation_id : null;
   } catch {
     return json({ error: 'invalid_body' }, 400);
   }
   if (!message || message.length > MAX_MESSAGE_LENGTH) return json({ error: 'invalid_message' }, 400);
+  if (conversationId && !UUID_PATTERN.test(conversationId)) {
+    return json({ error: 'conversation_not_found' }, 404);
+  }
 
-  // --- Context: profile + recent history ------------------------------------------
-  const [{ data: profile, error: profileError }, { data: recent, error: historyError }] =
+  // --- Context: profile + this conversation's recent history ------------------------
+  // No conversation_id = a new conversation, created below once the reply exists.
+  const [{ data: profile, error: profileError }, conversationCheck, historyResult] =
     await Promise.all([
       supabase
         .from('profiles')
         .select('pseudo, birth_date, birth_time, birth_place, latitude, longitude, timezone, house_system')
         .eq('id', userData.user.id)
         .maybeSingle<Profile>(),
-      supabase
-        .from('chat_messages')
-        .select('role, content')
-        .order('created_at', { ascending: false })
-        .order('id', { ascending: false })
-        .limit(HISTORY_LIMIT),
+      conversationId
+        ? supabase.from('conversations').select('id').eq('id', conversationId).maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      conversationId
+        ? supabase
+          .from('chat_messages')
+          .select('role, content')
+          .eq('conversation_id', conversationId)
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: false })
+          .limit(HISTORY_LIMIT)
+        : Promise.resolve({ data: [], error: null }),
     ]);
-  if (profileError || historyError) {
-    console.error('context load failed', profileError ?? historyError);
+  const recent = historyResult.data;
+  const loadError = profileError ?? conversationCheck.error ?? historyResult.error;
+  if (loadError) {
+    console.error('context load failed', loadError);
     return json({ error: 'context_unavailable' }, 500);
   }
   if (!profile) return json({ error: 'profile_missing' }, 409);
+  // RLS hides other users' conversations, so "not found" also covers "not yours".
+  if (conversationId && !conversationCheck.data) return json({ error: 'conversation_not_found' }, 404);
 
   // Oldest first, starting with a user turn, with consecutive same-role turns merged
   // (e.g. after an unanswered message) so roles strictly alternate.
@@ -471,12 +498,27 @@ Deno.serve(async (req) => {
     }
   }
 
-  // --- Save both messages (only once the reply exists, so history never has gaps) ----
+  // --- Save (only once the reply exists, so history never has gaps) ------------------
+  let title: string | null = null;
+  if (!conversationId) {
+    title = conversationTitle(message);
+    const { data: created, error: createError } = await supabase
+      .from('conversations')
+      .insert({ user_id: userData.user.id, title })
+      .select('id')
+      .single();
+    if (createError || !created) {
+      console.error('creating conversation failed', createError);
+      return json({ error: 'save_failed' }, 500);
+    }
+    conversationId = created.id as string;
+  }
+
   const { error: saveError } = await supabase.from('chat_messages').insert([
-    { role: 'user', content: message },
-    { role: 'assistant', content: reply },
+    { conversation_id: conversationId, role: 'user', content: message },
+    { conversation_id: conversationId, role: 'assistant', content: reply },
   ]);
   if (saveError) console.error('saving messages failed', saveError);
 
-  return json({ reply });
+  return json({ reply, conversation_id: conversationId, title });
 });

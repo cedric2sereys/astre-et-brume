@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { SessionService } from '../core/session.service';
 import { AgentError, AgentService } from '../core/agent.service';
-import { ChatHistoryService } from '../core/chat-history.service';
+import { Conversation, ConversationsService } from '../core/conversations.service';
 import { MarkdownPipe } from '../core/markdown.pipe';
 
 interface Message {
@@ -33,6 +33,49 @@ const GREETING =
         </div>
         <button class="pill" type="button" (click)="newChart()">Nouveau relevé</button>
       </header>
+
+      <div class="toolbar">
+        <button
+          class="pill"
+          type="button"
+          [attr.aria-expanded]="panelOpen()"
+          (click)="panelOpen.set(!panelOpen())"
+        >
+          Mes conversations ({{ conversations().length }})
+        </button>
+        <button
+          class="pill"
+          type="button"
+          [disabled]="typing() || currentId() === null"
+          (click)="startNew()"
+        >
+          + Nouvelle conversation
+        </button>
+      </div>
+
+      @if (panelOpen()) {
+        <nav class="card list" aria-label="Mes conversations">
+          @if (!conversations().length) {
+            <p class="empty">Aucune conversation enregistrée pour l'instant.</p>
+          }
+          <ul>
+            @for (c of conversations(); track c.id) {
+              <li>
+                <button
+                  type="button"
+                  [class.active]="c.id === currentId()"
+                  [attr.aria-current]="c.id === currentId() ? 'true' : null"
+                  [disabled]="typing()"
+                  (click)="open(c.id)"
+                >
+                  <span class="title">{{ c.title || 'Conversation' }}</span>
+                  <span class="when">{{ formatWhen(c.updated_at) }}</span>
+                </button>
+              </li>
+            }
+          </ul>
+        </nav>
+      }
 
       <div class="messages" aria-live="polite">
         @for (m of messages(); track $index) {
@@ -111,6 +154,27 @@ const GREETING =
       &:hover { background: rgba(193, 160, 94, 0.08); }
     }
 
+    .pill:disabled { opacity: 0.45; cursor: not-allowed; &:hover { background: transparent; } }
+
+    .toolbar { display: flex; gap: 0.7rem; flex-wrap: wrap; margin-top: 0.9rem; }
+
+    .list { margin-top: 0.8rem; padding: 0.6rem; border-radius: 14px; max-height: 50vh; overflow-y: auto; }
+    .list ul { list-style: none; margin: 0; padding: 0; }
+    .list button {
+      width: 100%;
+      display: flex; justify-content: space-between; align-items: baseline; gap: 1rem;
+      text-align: left;
+      background: transparent; border: 1px solid transparent; border-radius: 10px;
+      padding: 0.7rem 0.9rem;
+      color: var(--text); cursor: pointer;
+      &:hover:not(:disabled) { background: var(--card-2); }
+      &.active { border-color: var(--gold-dim); background: var(--card-2); }
+      &:disabled { cursor: not-allowed; opacity: 0.6; }
+    }
+    .list .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .list .when { flex: none; font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); }
+    .list .empty { margin: 0.5rem 0.9rem; color: var(--muted); }
+
     .messages { flex: 1; display: flex; flex-direction: column; gap: 1.4rem; padding: 1.8rem 0; }
     .bubble { max-width: 80%; border-radius: 14px; }
     .bubble p { margin: 0; line-height: 1.75; white-space: pre-line; font-size: 1.1rem; }
@@ -153,6 +217,8 @@ const GREETING =
       .who { flex: 1 1 calc(100% - 56px - 1rem); }
       .details { font-size: 0.78rem; }
       .pill { width: 100%; }
+      .toolbar .pill { width: auto; flex: 1 1 auto; }
+      .list .when { display: none; }
       .bubble { max-width: 92%; }
     }
   `,
@@ -160,7 +226,7 @@ const GREETING =
 export class ConversationPage {
   protected readonly session = inject(SessionService);
   private readonly router = inject(Router);
-  private readonly history = inject(ChatHistoryService);
+  private readonly store = inject(ConversationsService);
   private readonly agent = inject(AgentService);
   private readonly end = viewChild<ElementRef<HTMLElement>>('end');
 
@@ -169,7 +235,12 @@ export class ConversationPage {
   readonly initial = computed(() => (this.session.pseudo() ?? '?').charAt(0));
   readonly typing = signal(false);
   readonly error = signal<string | null>(null);
-  // The greeting always opens the conversation; it is not stored. Saved history follows it.
+
+  readonly conversations = signal<Conversation[]>([]);
+  /** The open conversation; null = a new one, created on the server with its first message. */
+  readonly currentId = signal<string | null>(null);
+  readonly panelOpen = signal(false);
+  // The greeting always opens a conversation; it is not stored. Saved messages follow it.
   readonly messages = signal<Message[]>([{ from: 'agent', text: GREETING }]);
   draft = '';
 
@@ -179,25 +250,60 @@ export class ConversationPage {
       this.typing();
       queueMicrotask(() => this.end()?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'end' }));
     });
-    this.loadHistory();
+    this.init();
   }
 
-  private async loadHistory(): Promise<void> {
+  /** Lists the conversations and reopens the most recent one. */
+  private async init(): Promise<void> {
     try {
-      const saved = await this.history.load();
+      const list = await this.store.list();
+      this.conversations.set(list);
+      if (list.length) await this.open(list[0].id);
+    } catch (e) {
+      console.error('Loading conversations failed', e);
+      this.error.set("Vos conversations n'ont pas pu être chargées.");
+    }
+  }
+
+  async open(id: string): Promise<void> {
+    if (this.typing()) return;
+    this.currentId.set(id);
+    this.panelOpen.set(false);
+    this.error.set(null);
+    this.messages.set([{ from: 'agent', text: GREETING }]);
+    try {
+      const saved = await this.store.messages(id);
+      if (this.currentId() !== id) return; // another conversation was opened meanwhile
       this.messages.set([
         { from: 'agent', text: GREETING },
         ...saved.map((m): Message => ({ from: m.role === 'user' ? 'user' : 'agent', text: m.content })),
       ]);
     } catch (e) {
-      console.error('Loading chat history failed', e);
-      this.error.set("L'historique de la conversation n'a pas pu être chargé.");
+      console.error('Loading conversation failed', e);
+      this.error.set("Cette conversation n'a pas pu être chargée.");
     }
+  }
+
+  startNew(): void {
+    if (this.typing()) return;
+    this.currentId.set(null);
+    this.panelOpen.set(false);
+    this.error.set(null);
+    this.messages.set([{ from: 'agent', text: GREETING }]);
   }
 
   formatDate(iso: string): string {
     const [y, m, d] = iso.split('-');
     return `${d}/${m}/${y}`;
+  }
+
+  /** "Aujourd'hui, 14:05" for today, otherwise "3 oct. 2026". */
+  formatWhen(iso: string): string {
+    const date = new Date(iso);
+    if (date.toDateString() === new Date().toDateString()) {
+      return `Aujourd'hui, ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+    }
+    return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
   onEnter(event: Event): void {
@@ -216,9 +322,20 @@ export class ConversationPage {
     this.typing.set(true);
 
     try {
-      // The server saves both messages once the reply exists.
-      const reply = await this.agent.ask(text);
-      this.messages.update((list) => [...list, { from: 'agent', text: reply }]);
+      // The server saves both messages once the reply exists (creating the conversation if new).
+      const result = await this.agent.ask(text, this.currentId());
+      this.messages.update((list) => [...list, { from: 'agent', text: result.reply }]);
+      this.currentId.set(result.conversationId);
+      // Move this conversation to the top of the list (adding it if it is new).
+      this.conversations.update((list) => {
+        const existing = list.find((c) => c.id === result.conversationId);
+        const updated: Conversation = {
+          id: result.conversationId,
+          title: existing?.title ?? result.title,
+          updated_at: new Date().toISOString(),
+        };
+        return [updated, ...list.filter((c) => c.id !== result.conversationId)];
+      });
     } catch (e) {
       console.error('Agent call failed', e);
       // Nothing was saved: take the message back so it can be sent again.
