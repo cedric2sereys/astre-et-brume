@@ -4,13 +4,13 @@
 // The browser sends { message, timezone, conversation_id? }. This function checks who the user is, loads their
 // profile and that conversation's recent history (with the user's own rights, so RLS applies), makes sure the
 // natal chart and today's horoscope are available (cached in astro_readings to stay within
-// FreeAstroAPI's 80 requests/day), asks Gemini for a reply grounded in that data, then saves
-// both messages and returns the reply.
+// FreeAstroAPI's 80 requests/day), streams Gemini's reply grounded in that data as it is written,
+// then saves both messages once the reply is complete.
 //
 // Secrets required (Supabase → Edge Functions → Secrets): GEMINI_API_KEY, FREEASTRO_API_KEY
 // Optional secret: GEMINI_MODEL (defaults to gemini-flash-latest)
 
-import { ApiError, GoogleGenAI } from 'npm:@google/genai@2.27.0';
+import { ApiError, type GenerateContentResponse, GoogleGenAI } from 'npm:@google/genai@2.27.0';
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2.117.2';
 
 const MODEL = Deno.env.get('GEMINI_MODEL') ?? 'gemini-flash-latest';
@@ -469,11 +469,13 @@ Deno.serve(async (req) => {
     })),
     { role: 'user', parts: [{ text: message }, { text: LANGUAGE_REMINDER }] },
   ];
+  // The stream is opened here so that quota/overload errors (raised when the request is sent,
+  // before any text) can still fall back to the other model or become a normal JSON error.
   const models = [...new Set([MODEL, FALLBACK_MODEL])];
-  let reply = '';
+  let geminiStream: AsyncGenerator<GenerateContentResponse> | null = null;
   for (const [i, model] of models.entries()) {
     try {
-      const response = await gemini.models.generateContent({
+      geminiStream = await gemini.models.generateContentStream({
         model,
         contents,
         config: {
@@ -482,10 +484,6 @@ Deno.serve(async (req) => {
           maxOutputTokens: 4096, // includes the model's internal reasoning on Flash models
         },
       });
-      reply = (response.text ?? '').trim();
-      if (!reply) {
-        throw new Error(`empty reply (finish reason: ${response.candidates?.[0]?.finishReason})`);
-      }
       break;
     } catch (error) {
       const status = error instanceof ApiError ? error.status : undefined;
@@ -497,28 +495,72 @@ Deno.serve(async (req) => {
       return json({ error: 'agent_unavailable' }, 502);
     }
   }
+  if (!geminiStream) return json({ error: 'agent_unavailable' }, 502);
+  const replyStream = geminiStream;
+  const userId = userData.user.id;
 
-  // --- Save (only once the reply exists, so history never has gaps) ------------------
-  let title: string | null = null;
-  if (!conversationId) {
-    title = conversationTitle(message);
-    const { data: created, error: createError } = await supabase
-      .from('conversations')
-      .insert({ user_id: userData.user.id, title })
-      .select('id')
-      .single();
-    if (createError || !created) {
-      console.error('creating conversation failed', createError);
-      return json({ error: 'save_failed' }, 500);
-    }
-    conversationId = created.id as string;
-  }
+  // --- Stream the reply as it is written, then save -------------------------------
+  // Newline-delimited JSON events:
+  //   {"type":"delta","text":"…"}                         a piece of the reply
+  //   {"type":"done","conversation_id":"…","title":…}     reply complete and saved
+  //   {"type":"error","error":"agent_unavailable"|…}       failed: nothing was saved
+  const encoder = new TextEncoder();
+  const body = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (event: unknown) => controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
 
-  const { error: saveError } = await supabase.from('chat_messages').insert([
-    { conversation_id: conversationId, role: 'user', content: message },
-    { conversation_id: conversationId, role: 'assistant', content: reply },
-  ]);
-  if (saveError) console.error('saving messages failed', saveError);
+      let reply = '';
+      try {
+        for await (const chunk of replyStream) {
+          const text = chunk.text;
+          if (text) {
+            reply += text;
+            send({ type: 'delta', text });
+          }
+        }
+        reply = reply.trim();
+        if (!reply) throw new Error('empty reply');
+      } catch (error) {
+        console.error('Gemini stream failed:', (error as Error).message);
+        send({ type: 'error', error: 'agent_unavailable' });
+        controller.close();
+        return;
+      }
 
-  return json({ reply, conversation_id: conversationId, title });
+      // Saved only once the reply is complete, so history never has gaps.
+      let title: string | null = null;
+      if (!conversationId) {
+        title = conversationTitle(message);
+        const { data: created, error: createError } = await supabase
+          .from('conversations')
+          .insert({ user_id: userId, title })
+          .select('id')
+          .single();
+        if (createError || !created) {
+          console.error('creating conversation failed', createError);
+          send({ type: 'error', error: 'save_failed' });
+          controller.close();
+          return;
+        }
+        conversationId = created.id as string;
+      }
+
+      const { error: saveError } = await supabase.from('chat_messages').insert([
+        { conversation_id: conversationId, role: 'user', content: message },
+        { conversation_id: conversationId, role: 'assistant', content: reply },
+      ]);
+      if (saveError) console.error('saving messages failed', saveError);
+
+      send({ type: 'done', conversation_id: conversationId, title });
+      controller.close();
+    },
+  });
+
+  return new Response(body, {
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'application/x-ndjson; charset=utf-8',
+      'Cache-Control': 'no-cache',
+    },
+  });
 });

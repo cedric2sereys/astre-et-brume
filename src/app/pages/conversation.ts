@@ -46,7 +46,7 @@ const GREETING =
         <button
           class="pill"
           type="button"
-          [disabled]="typing() || currentId() === null"
+          [disabled]="busy() || currentId() === null"
           (click)="startNew()"
         >
           + Nouvelle conversation
@@ -65,7 +65,7 @@ const GREETING =
                   type="button"
                   [class.active]="c.id === currentId()"
                   [attr.aria-current]="c.id === currentId() ? 'true' : null"
-                  [disabled]="typing()"
+                  [disabled]="busy()"
                   (click)="open(c.id)"
                 >
                   <span class="title">{{ c.title || 'Conversation' }}</span>
@@ -88,7 +88,7 @@ const GREETING =
             <div class="bubble user"><p>{{ m.text }}</p></div>
           }
         }
-        @if (typing()) {
+        @if (waiting()) {
           <div class="bubble agent typing">
             <span class="eyebrow">L'agent</span>
             <p>Je suis en train de consulter les astres, un tout petit peu de patience…<span class="dots"><span></span><span></span><span></span></span></p>
@@ -109,7 +109,7 @@ const GREETING =
           [(ngModel)]="draft"
           (keydown.enter)="onEnter($event)"
         ></textarea>
-        <button class="btn btn-gold" type="submit" [disabled]="!draft.trim() || typing()">Envoyer</button>
+        <button class="btn btn-gold" type="submit" [disabled]="!draft.trim() || busy()">Envoyer</button>
       </form>
     </section>
   `,
@@ -233,7 +233,10 @@ export class ConversationPage {
   readonly chart = this.session.chart;
   readonly city = computed(() => this.chart()?.place.split(',')[0] ?? '');
   readonly initial = computed(() => (this.session.pseudo() ?? '?').charAt(0));
-  readonly typing = signal(false);
+  /** True for the whole exchange: blocks sending and switching conversations. */
+  readonly busy = signal(false);
+  /** True until the first words of the reply arrive (shows "consulter les astres"). */
+  readonly waiting = signal(false);
   readonly error = signal<string | null>(null);
 
   readonly conversations = signal<Conversation[]>([]);
@@ -247,7 +250,7 @@ export class ConversationPage {
   constructor() {
     effect(() => {
       this.messages();
-      this.typing();
+      this.waiting();
       queueMicrotask(() => this.end()?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'end' }));
     });
     this.init();
@@ -266,7 +269,7 @@ export class ConversationPage {
   }
 
   async open(id: string): Promise<void> {
-    if (this.typing()) return;
+    if (this.busy()) return;
     this.currentId.set(id);
     this.panelOpen.set(false);
     this.error.set(null);
@@ -285,7 +288,7 @@ export class ConversationPage {
   }
 
   startNew(): void {
-    if (this.typing()) return;
+    if (this.busy()) return;
     this.currentId.set(null);
     this.panelOpen.set(false);
     this.error.set(null);
@@ -315,16 +318,28 @@ export class ConversationPage {
 
   async send(): Promise<void> {
     const text = this.draft.trim();
-    if (!text || this.typing()) return;
+    if (!text || this.busy()) return;
     this.draft = '';
     this.error.set(null);
+    const before = this.messages().length; // to take everything back if the exchange fails
     this.messages.update((list) => [...list, { from: 'user', text }]);
-    this.typing.set(true);
+    this.busy.set(true);
+    this.waiting.set(true);
 
     try {
-      // The server saves both messages once the reply exists (creating the conversation if new).
-      const result = await this.agent.ask(text, this.currentId());
-      this.messages.update((list) => [...list, { from: 'agent', text: result.reply }]);
+      // The reply is shown as it is written. The server saves both messages once it is
+      // complete (creating the conversation if new).
+      const result = await this.agent.ask(text, this.currentId(), (piece) => {
+        if (this.waiting()) {
+          this.waiting.set(false);
+          this.messages.update((list) => [...list, { from: 'agent', text: piece }]);
+        } else {
+          this.messages.update((list) => [
+            ...list.slice(0, -1),
+            { from: 'agent', text: list[list.length - 1].text + piece },
+          ]);
+        }
+      });
       this.currentId.set(result.conversationId);
       // Move this conversation to the top of the list (adding it if it is new).
       this.conversations.update((list) => {
@@ -338,12 +353,13 @@ export class ConversationPage {
       });
     } catch (e) {
       console.error('Agent call failed', e);
-      // Nothing was saved: take the message back so it can be sent again.
-      this.messages.update((list) => list.slice(0, -1));
+      // Nothing was saved: take the message (and any partial reply) back so it can be sent again.
+      this.messages.update((list) => list.slice(0, before));
       this.draft = text;
       this.error.set(e instanceof AgentError ? e.message : AgentError.GENERIC);
     } finally {
-      this.typing.set(false);
+      this.waiting.set(false);
+      this.busy.set(false);
     }
   }
 
