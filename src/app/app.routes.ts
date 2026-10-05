@@ -26,5 +26,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/conversation').then((m) => m.ConversationPage),
     title: 'Conversation · Astre & Brume',
   },
+  {
+    // Target of the "forgot password" email; no step guard (the link itself signs the user in).
+    path: 'nouveau-mot-de-passe',
+    loadComponent: () => import('./pages/new-password').then((m) => m.NewPasswordPage),
+    title: 'Nouveau mot de passe · Astre & Brume',
+  },
   { path: '**', canActivate: [redirectToNextStep], children: [] },
 ];

@@ -30,6 +30,8 @@ function authErrorMessage(error: AuthError): string {
       return 'Un compte existe déjà avec cet email. Connectez-vous plutôt.';
     case 'weak_password':
       return 'Mot de passe trop faible : choisissez-en un plus long ou plus varié.';
+    case 'same_password':
+      return "Le nouveau mot de passe doit être différent de l'ancien.";
     case 'over_request_rate_limit':
     case 'over_email_send_rate_limit':
       return 'Trop de tentatives. Patientez une minute puis réessayez.';
@@ -98,6 +100,23 @@ export class SessionService {
   async signOut(): Promise<void> {
     await supabase.auth.signOut();
     this.clear();
+  }
+
+  /**
+   * Emails a link to /nouveau-mot-de-passe. Returns an error message, or null.
+   * Succeeds even for unknown emails, so the form doesn't reveal who has an account.
+   */
+  async requestPasswordReset(email: string): Promise<string | null> {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/nouveau-mot-de-passe`,
+    });
+    return error ? authErrorMessage(error) : null;
+  }
+
+  /** Sets a new password for the signed-in user (reached from the reset link). */
+  async updatePassword(password: string): Promise<string | null> {
+    const { error } = await supabase.auth.updateUser({ password });
+    return error ? authErrorMessage(error) : null;
   }
 
   /** Saves the nickname (creates the profile on first visit). Returns an error message, or null. */
