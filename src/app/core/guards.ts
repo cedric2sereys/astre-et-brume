@@ -29,6 +29,14 @@ export const stepGuard =
     return allowed ? true : router.parseUrl(`/${current}`);
   };
 
+/** Any signed-in user, whatever onboarding step they are at. */
+export const signedInGuard: CanActivateFn = async () => {
+  const session = inject(SessionService);
+  const router = inject(Router);
+  await session.ready;
+  return session.isLoggedIn() ? true : router.parseUrl('/connexion');
+};
+
 export const redirectToNextStep: CanActivateFn = async () => {
   const session = inject(SessionService);
   const router = inject(Router);

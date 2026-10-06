@@ -16,6 +16,7 @@ import { SessionService } from '../core/session.service';
       <nav class="meta">
         <span class="credit">Ciel du jour · FreeAstroAPI</span>
         @if (session.isLoggedIn()) {
+          <button class="logout" type="button" (click)="account()">Mon compte</button>
           <button class="logout" type="button" (click)="signOut()">Déconnexion</button>
         }
       </nav>
@@ -65,14 +66,17 @@ import { SessionService } from '../core/session.service';
     }
     .meta {
       display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
       align-items: center;
-      gap: 1.6rem;
+      gap: 0.8rem;
       font-family: var(--font-mono);
       font-size: 0.78rem;
       letter-spacing: 0.3em;
       text-transform: uppercase;
       color: var(--muted);
     }
+    .credit { margin-right: 0.8rem; }
     .logout {
       background: none;
       border: 1px solid var(--border);
@@ -89,6 +93,7 @@ import { SessionService } from '../core/session.service';
       header { padding: 1.2rem 1rem; }
       .credit { display: none; }
       .name { font-size: 1.3rem; }
+      .meta { gap: 0.4rem; }
       .logout { letter-spacing: 0.1em; padding: 0.35rem 0.7rem; }
     }
   `,
@@ -96,6 +101,10 @@ import { SessionService } from '../core/session.service';
 export class Header {
   protected readonly session = inject(SessionService);
   private readonly router = inject(Router);
+
+  account(): void {
+    this.router.navigateByUrl('/compte');
+  }
 
   async signOut(): Promise<void> {
     await this.session.signOut();

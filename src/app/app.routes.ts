@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { redirectToNextStep, stepGuard } from './core/guards';
+import { redirectToNextStep, signedInGuard, stepGuard } from './core/guards';
 
 export const routes: Routes = [
   {
@@ -25,6 +25,12 @@ export const routes: Routes = [
     canActivate: [stepGuard('conversation')],
     loadComponent: () => import('./pages/conversation').then((m) => m.ConversationPage),
     title: 'Conversation · Astre & Brume',
+  },
+  {
+    path: 'compte',
+    canActivate: [signedInGuard],
+    loadComponent: () => import('./pages/account').then((m) => m.AccountPage),
+    title: 'Mon compte · Astre & Brume',
   },
   {
     // Target of the "forgot password" email; no step guard (the link itself signs the user in).

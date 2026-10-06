@@ -113,6 +113,22 @@ export class SessionService {
     return error ? authErrorMessage(error) : null;
   }
 
+  /**
+   * Permanently deletes the signed-in user's account and all their data (see migration 004),
+   * then signs out locally. Returns an error message, or null.
+   */
+  async deleteAccount(): Promise<string | null> {
+    const { error } = await supabase.rpc('delete_my_account');
+    if (error) {
+      console.error('Deleting account failed', error);
+      return "La suppression a échoué. Vérifiez votre connexion internet et réessayez.";
+    }
+    // The session no longer exists on the server: just forget it in this browser.
+    await supabase.auth.signOut({ scope: 'local' });
+    this.clear();
+    return null;
+  }
+
   /** Sets a new password for the signed-in user (reached from the reset link). */
   async updatePassword(password: string): Promise<string | null> {
     const { error } = await supabase.auth.updateUser({ password });
