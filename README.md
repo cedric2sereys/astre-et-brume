@@ -36,3 +36,11 @@ Edge Function secrets (Supabase → Edge Functions → Secrets):
 - `GEMINI_MODEL` — optional, defaults to `gemini-flash-latest`
 
 Deploy the function by pasting `supabase/functions/chat/index.ts` into Edge Functions → `chat` → Code → Deploy.
+
+Auth emails (password reset) are sent through Gmail SMTP from `astre.et.brume@gmail.com`
+(Authentication → Emails → SMTP Settings: host `smtp.gmail.com`, port 465, password = a Google
+"app password", which needs 2-Step Verification on that account). Supabase's built-in mailer only
+reaches project members, so custom SMTP is required for real users.
+
+Authentication → URL Configuration: the Site URL and Redirect URLs must include the app's address
+(currently `http://localhost:4200` and `http://localhost:4200/**`; add the production URL when deployed).
