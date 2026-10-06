@@ -42,5 +42,18 @@ Auth emails (password reset) are sent through Gmail SMTP from `astre.et.brume@gm
 "app password", which needs 2-Step Verification on that account). Supabase's built-in mailer only
 reaches project members, so custom SMTP is required for real users.
 
-Authentication → URL Configuration: the Site URL and Redirect URLs must include the app's address
-(currently `http://localhost:4200` and `http://localhost:4200/**`; add the production URL when deployed).
+Authentication → URL Configuration: Site URL `https://astre-et-brume.pages.dev`; Redirect URLs
+`https://astre-et-brume.pages.dev/**` and `http://localhost:4200/**` (for local development).
+
+## Hosting (Cloudflare Pages)
+
+Live at **https://astre-et-brume.pages.dev**. The Cloudflare Pages project is connected to this
+GitHub repository: every push to `main` rebuilds and redeploys the site automatically.
+
+- Build command: `npm run build`
+- Build output directory: `dist/astre-et-brume/browser`
+- Environment variable `NODE_VERSION` = `24.19.0` — use an exact version: Angular 22 needs
+  Node ≥ 24.15, and a bare `24` made Cloudflare pick an older 24.x that fails the build.
+
+The Edge Function is not deployed by Cloudflare: redeploy it in Supabase when
+`supabase/functions/chat/index.ts` changes.
