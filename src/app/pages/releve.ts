@@ -146,11 +146,13 @@ const BROWSER_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
           </label>
           <label class="field">
             <span class="field-label">{{ i18n.t('releve.houseSystem') }}</span>
-            <select class="input" name="houseSystem" [(ngModel)]="houseSystem">
+            <select class="input" name="houseSystem" [(ngModel)]="houseSystem"
+              aria-describedby="house-hint">
               @for (h of houseSystems; track h) {
                 <option [value]="h">{{ h }}</option>
               }
             </select>
+            <span class="field-hint" id="house-hint">{{ i18n.t('releve.houseSystemHint') }}</span>
           </label>
         </div>
 
@@ -187,6 +189,7 @@ const BROWSER_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
       background: var(--input); border: 1px solid var(--gold-dim); border-radius: 10px;
     }
     .hint { color: var(--muted); font-size: 0.9rem; margin: 0.6rem 0 0; }
+    .field-hint { display: block; color: var(--muted); font-size: 0.88rem; line-height: 1.5; margin-top: 0.45rem; }
     .btn-gold { margin-top: 0.8rem; }
     @media (max-width: 560px) {
       .row { grid-template-columns: 1fr; gap: 0; }

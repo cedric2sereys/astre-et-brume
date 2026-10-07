@@ -97,6 +97,8 @@ const FR = {
   'releve.search': 'Rechercher',
   'releve.timezone': 'Fuseau horaire',
   'releve.houseSystem': 'Système de maisons',
+  'releve.houseSystemHint':
+    'Vous ne savez pas lequel choisir ? Gardez « placidus » : c’est le système de maisons le plus utilisé.',
   'releve.submit': "Valider et rejoindre l'agent",
   'releve.noPlace': 'Aucun lieu trouvé. Essayez « Ville, Pays ».',
   'releve.searchFailed': 'La recherche a échoué. Vérifiez votre connexion et réessayez.',
@@ -263,6 +265,7 @@ const EN: Record<TKey, string> = {
   'releve.search': 'Search',
   'releve.timezone': 'Time zone',
   'releve.houseSystem': 'House system',
+  'releve.houseSystemHint': 'Not sure which to pick? Keep “placidus”: it is the most widely used house system.',
   'releve.submit': 'Save and meet the agent',
   'releve.noPlace': 'No place found. Try "City, Country".',
   'releve.searchFailed': 'The search failed. Check your connection and try again.',
