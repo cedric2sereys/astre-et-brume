@@ -46,30 +46,33 @@ const TEXTS: Record<Mode, { title: string; lead: string; submit: string }> = {
         <p class="lead">{{ texts().lead }}</p>
 
         <form (ngSubmit)="submit()" novalidate>
-          <label class="field">
-            <span class="field-label">Email</span>
-            <input
-              class="input"
-              type="email"
-              name="email"
-              autocomplete="email"
-              placeholder="vous@exemple.fr"
-              [(ngModel)]="email"
-            />
-          </label>
-          @if (mode() !== 'forgot') {
+          <!-- Side by side on wide screens, stacked on phones -->
+          <div class="creds" [class.single]="mode() === 'forgot'">
             <label class="field">
-              <span class="field-label">Mot de passe</span>
+              <span class="field-label">Email</span>
               <input
                 class="input"
-                type="password"
-                name="password"
-                [autocomplete]="mode() === 'signin' ? 'current-password' : 'new-password'"
-                placeholder="••••••••"
-                [(ngModel)]="password"
+                type="email"
+                name="email"
+                autocomplete="email"
+                placeholder="vous@exemple.fr"
+                [(ngModel)]="email"
               />
             </label>
-          }
+            @if (mode() !== 'forgot') {
+              <label class="field">
+                <span class="field-label">Mot de passe</span>
+                <input
+                  class="input"
+                  type="password"
+                  name="password"
+                  [autocomplete]="mode() === 'signin' ? 'current-password' : 'new-password'"
+                  placeholder="••••••••"
+                  [(ngModel)]="password"
+                />
+              </label>
+            }
+          </div>
           @if (mode() === 'signin') {
             <p class="forgot">
               <button class="link" type="button" (click)="setMode('forgot')">Mot de passe oublié ?</button>
@@ -124,6 +127,24 @@ const TEXTS: Record<Mode, { title: string; lead: string; submit: string }> = {
     .forgot { margin: -0.4rem 0 0.4rem; text-align: right; font-size: 0.95rem; }
     .switch { text-align: center; margin: 1.8rem 0 0; }
     strong { color: var(--gold-soft); font-weight: 500; }
+
+    /* Computers: wider and more compact, so the whole form fits without scrolling
+       on a typical laptop window (~650 px of visible height). Phones keep the layout above. */
+    @media (min-width: 900px) {
+      :host { gap: 1rem; padding-bottom: 0; }
+      .intro, .card { width: min(100%, 760px); }
+      .intro { font-size: 1.55rem; }
+      .card { padding: 1.9rem 2.8rem 1.6rem; }
+      .card .eyebrow { margin-bottom: 0.5rem; }
+      .card .title { margin-bottom: 0.5rem; }
+      .card .lead { margin-bottom: 1.2rem; }
+      .creds { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; }
+      .creds.single { grid-template-columns: 1fr; }
+      .creds .field { margin-bottom: 0.6rem; }
+      .forgot { margin: 0 0 0.2rem; }
+      .btn { margin-top: 0.6rem; }
+      .switch { margin-top: 1.1rem; }
+    }
   `,
 })
 export class AuthPage {

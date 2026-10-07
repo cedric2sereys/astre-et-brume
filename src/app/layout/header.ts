@@ -14,7 +14,7 @@ import { SessionService } from '../core/session.service';
         </div>
       </div>
       <nav class="meta">
-        <span class="credit">Ciel du jour · FreeAstroAPI</span>
+        <span class="credit">Ciel du jour</span>
         @if (session.isLoggedIn()) {
           <button class="logout" type="button" (click)="account()">Mon compte</button>
           <button class="logout" type="button" (click)="signOut()">Déconnexion</button>
@@ -28,7 +28,7 @@ import { SessionService } from '../core/session.service';
       align-items: center;
       justify-content: space-between;
       gap: 1rem;
-      padding: 1.9rem 2.2rem;
+      padding: 1.6rem 2.2rem;
       position: relative;
       z-index: 2;
     }

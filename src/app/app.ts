@@ -25,7 +25,7 @@ import { Starfield } from './layout/starfield';
       flex: 1;
       display: flex;
       flex-direction: column;
-      padding: 0 1rem 3rem;
+      padding: 0 1rem 1rem;
     }
   `,
 })
