@@ -1,7 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { MIN_PASSWORD_LENGTH, SessionService } from '../core/session.service';
+import { PASSWORD_RULE, SessionService, passwordProblem } from '../core/session.service';
 
 /**
  * Reached from the "forgot password" email. The link signs the user in (supabase-js reads the
@@ -24,7 +24,7 @@ import { MIN_PASSWORD_LENGTH, SessionService } from '../core/session.service';
         </p>
         <button class="btn btn-outline" type="button" (click)="toLogin()">Retour à la connexion</button>
       } @else {
-        <p class="lead">Choisissez votre nouveau mot de passe ({{ minLength }} caractères au minimum).</p>
+        <p class="lead">Choisissez votre nouveau mot de passe ({{ rule }}).</p>
         <form (ngSubmit)="submit()" novalidate>
           <label class="field">
             <span class="field-label">Nouveau mot de passe</span>
@@ -57,7 +57,7 @@ export class NewPasswordPage {
   protected readonly session = inject(SessionService);
   private readonly router = inject(Router);
 
-  readonly minLength = MIN_PASSWORD_LENGTH;
+  readonly rule = PASSWORD_RULE;
   readonly checking = signal(true);
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
@@ -70,8 +70,9 @@ export class NewPasswordPage {
 
   async submit(): Promise<void> {
     if (this.saving()) return;
-    if (this.password.length < MIN_PASSWORD_LENGTH) {
-      this.error.set(`Le mot de passe doit contenir au moins ${MIN_PASSWORD_LENGTH} caractères.`);
+    const problem = passwordProblem(this.password);
+    if (problem) {
+      this.error.set(problem);
       return;
     }
     if (this.password !== this.confirm) {

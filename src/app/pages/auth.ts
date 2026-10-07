@@ -1,7 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { MIN_PASSWORD_LENGTH, SessionService } from '../core/session.service';
+import { PASSWORD_RULE, SessionService, passwordProblem } from '../core/session.service';
 
 type Mode = 'signin' | 'signup' | 'forgot';
 
@@ -13,7 +13,7 @@ const TEXTS: Record<Mode, { title: string; lead: string; submit: string }> = {
   },
   signup: {
     title: 'Créer un compte',
-    lead: `Choisissez un email et un mot de passe (${MIN_PASSWORD_LENGTH} caractères au minimum) pour ouvrir votre atelier.`,
+    lead: `Choisissez un email et un mot de passe (${PASSWORD_RULE}) pour ouvrir votre atelier.`,
     submit: 'Créer mon compte',
   },
   forgot: {
@@ -150,10 +150,11 @@ export class AuthPage {
       this.error.set('Veuillez saisir une adresse email valide.');
       return;
     }
-    // New accounts need 8+ characters. Sign-in only needs a password: older accounts may
-    // still have a 6- or 7-character one.
-    if (this.mode() === 'signup' && this.password.length < MIN_PASSWORD_LENGTH) {
-      this.error.set(`Le mot de passe doit contenir au moins ${MIN_PASSWORD_LENGTH} caractères.`);
+    // New accounts must follow the password rule. Sign-in only needs a password: older
+    // accounts may still have one created under the previous, weaker rule.
+    const problem = this.mode() === 'signup' ? passwordProblem(this.password) : null;
+    if (problem) {
+      this.error.set(problem);
       return;
     }
     if (this.mode() === 'signin' && !this.password) {

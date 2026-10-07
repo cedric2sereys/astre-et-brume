@@ -20,8 +20,24 @@ export function birthDateTimeIso(chart: BirthChart): string {
   return `${chart.date}T${chart.time}:00`;
 }
 
-/** Must match Supabase → Authentication → Email → "Minimum password length". */
+/**
+ * Must match Supabase → Authentication → Email: "Minimum password length" = 8 and
+ * "Password requirements" = letters and digits. Supabase enforces it; this only gives a
+ * clear message before sending.
+ */
 export const MIN_PASSWORD_LENGTH = 8;
+export const PASSWORD_RULE = `${MIN_PASSWORD_LENGTH} caractères au minimum, avec des lettres et des chiffres`;
+
+/** What's wrong with a new password, or null if it follows the rule. */
+export function passwordProblem(password: string): string | null {
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return `Le mot de passe doit contenir au moins ${MIN_PASSWORD_LENGTH} caractères.`;
+  }
+  if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+    return 'Le mot de passe doit contenir au moins une lettre et un chiffre.';
+  }
+  return null;
+}
 
 /** Turns Supabase auth errors into messages for the user. */
 function authErrorMessage(error: AuthError): string {
@@ -32,7 +48,7 @@ function authErrorMessage(error: AuthError): string {
     case 'email_exists':
       return 'Un compte existe déjà avec cet email. Connectez-vous plutôt.';
     case 'weak_password':
-      return `Mot de passe trop faible : au moins ${MIN_PASSWORD_LENGTH} caractères, et plus varié.`;
+      return `Mot de passe trop faible : ${PASSWORD_RULE}.`;
     case 'same_password':
       return "Le nouveau mot de passe doit être différent de l'ancien.";
     case 'over_request_rate_limit':
