@@ -27,6 +27,11 @@ const TEXTS: Record<Mode, { title: string; lead: string; submit: string }> = {
   selector: 'app-auth-page',
   imports: [FormsModule],
   template: `
+    <p class="intro">
+      Votre compagnon astrologique conversationnel pour une expérience consultative personnalisée,
+      active et durable dans le temps.
+    </p>
+
     <section class="card">
       <p class="eyebrow">Entrée de l'atelier</p>
       <h1 class="title">{{ texts().title }}</h1>
@@ -95,7 +100,25 @@ const TEXTS: Record<Mode, { title: string; lead: string; submit: string }> = {
     </section>
   `,
   styles: `
-    :host { flex: 1; display: grid; place-items: center; padding-bottom: 6vh; }
+    :host {
+      flex: 1;
+      display: grid;
+      place-items: center;
+      align-content: center;
+      gap: 2rem;
+      padding-bottom: 6vh;
+    }
+    .intro {
+      width: min(100%, 628px);
+      margin: 0;
+      text-align: center;
+      font-family: var(--font-display);
+      font-style: italic;
+      font-size: clamp(1.3rem, 2.6vw, 1.6rem);
+      line-height: 1.45;
+      color: var(--gold-soft);
+      text-wrap: balance;
+    }
     .card { width: min(100%, 628px); }
     .btn { margin-top: 1.1rem; }
     .forgot { margin: -0.4rem 0 0.4rem; text-align: right; font-size: 0.95rem; }
