@@ -1,23 +1,27 @@
 import { Injectable } from '@angular/core';
 import { environment } from '../../environments/environment';
+import { TKey } from './i18n';
 import { supabase } from './supabase';
 
-/** An error whose message can be shown to the user as is. */
+/** An error whose message (`key`, translated by the page) can be shown to the user. */
 export class AgentError extends Error {
-  static readonly GENERIC =
-    "Les astres sont momentanément injoignables. Vérifiez votre connexion et réessayez.";
+  constructor(readonly key: TKey) {
+    super(key);
+  }
 }
 
-const MESSAGES: Record<string, string> = {
-  busy: 'Beaucoup de monde consulte les astres en ce moment. Réessayez dans une minute.',
-  profile_missing: 'Votre profil est incomplet : renseignez votre pseudo et votre relevé de naissance.',
-  invalid_message: 'Ce message est vide ou trop long (4 000 caractères au maximum).',
-  unauthorized: 'Votre session a expiré. Déconnectez-vous puis reconnectez-vous.',
-  conversation_not_found: "Cette conversation n'existe plus. Ouvrez-en une autre ou commencez-en une nouvelle.",
-  save_failed: "La conversation n'a pas pu être enregistrée. Réessayez dans un instant.",
+/** Error codes sent by the "chat" Edge Function → message keys. */
+const MESSAGES: Record<string, TKey> = {
+  busy: 'agent.busy',
+  profile_missing: 'agent.profileMissing',
+  invalid_message: 'agent.invalidMessage',
+  unauthorized: 'agent.unauthorized',
+  conversation_not_found: 'agent.conversationNotFound',
+  save_failed: 'agent.saveFailed',
 };
 
-const errorFor = (code: string | undefined) => new AgentError((code && MESSAGES[code]) || AgentError.GENERIC);
+const errorFor = (code: string | undefined) =>
+  new AgentError((code && MESSAGES[code]) || 'agent.generic');
 
 export interface AgentResult {
   /** The conversation the exchange was saved in (newly created when none was given). */

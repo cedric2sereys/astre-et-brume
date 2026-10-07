@@ -5,7 +5,7 @@ AI astrologer that reads their natal chart and personal daily horoscope.
 
 ## Stack
 
-- **Front end:** Angular (this folder), UI in French
+- **Front end:** Angular (this folder), UI in French and English (FR | EN switch; all texts in `src/app/core/i18n.ts`)
 - **Auth & database:** Supabase (email/password login, `profiles`, `chat_messages`, `astro_readings`)
 - **AI agent:** Google Gemini (free tier), called from the Supabase Edge Function `chat`
 - **Astrology data:** FreeAstroAPI (free tier, 80 requests/day) — natal chart + personal daily horoscope/transits, cached per user

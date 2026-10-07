@@ -1,7 +1,8 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { PASSWORD_RULE, SessionService, passwordProblem } from '../core/session.service';
+import { I18n, TKey } from '../core/i18n';
+import { SessionService, passwordProblem } from '../core/session.service';
 
 /**
  * Reached from the "forgot password" email. The link signs the user in (supabase-js reads the
@@ -12,36 +13,35 @@ import { PASSWORD_RULE, SessionService, passwordProblem } from '../core/session.
   imports: [FormsModule],
   template: `
     <section class="card">
-      <p class="eyebrow">Entrée de l'atelier</p>
-      <h1 class="title">Nouveau mot de passe</h1>
+      <p class="eyebrow">{{ i18n.t('auth.eyebrow') }}</p>
+      <h1 class="title">{{ i18n.t('newPassword.title') }}</h1>
 
       @if (checking()) {
-        <p class="lead">Un instant…</p>
+        <p class="lead">{{ i18n.t('common.wait') }}</p>
       } @else if (!session.isLoggedIn()) {
-        <p class="lead">
-          Ce lien n'est plus valide : il a peut-être expiré ou déjà servi. Demandez-en un nouveau
-          depuis la page de connexion.
-        </p>
-        <button class="btn btn-outline" type="button" (click)="toLogin()">Retour à la connexion</button>
+        <p class="lead">{{ i18n.t('newPassword.invalid') }}</p>
+        <button class="btn btn-outline" type="button" (click)="toLogin()">
+          {{ i18n.t('auth.backToSignin') }}
+        </button>
       } @else {
-        <p class="lead">Choisissez votre nouveau mot de passe ({{ rule }}).</p>
+        <p class="lead">{{ i18n.t('newPassword.lead') }}</p>
         <form (ngSubmit)="submit()" novalidate>
           <label class="field">
-            <span class="field-label">Nouveau mot de passe</span>
+            <span class="field-label">{{ i18n.t('newPassword.password') }}</span>
             <input class="input" type="password" name="password" autocomplete="new-password"
               placeholder="••••••••" [(ngModel)]="password" />
           </label>
           <label class="field">
-            <span class="field-label">Confirmez-le</span>
+            <span class="field-label">{{ i18n.t('newPassword.confirm') }}</span>
             <input class="input" type="password" name="confirm" autocomplete="new-password"
               placeholder="••••••••" [(ngModel)]="confirm" />
           </label>
 
-          @if (error()) {
-            <p class="error" role="alert">{{ error() }}</p>
+          @if (error(); as error) {
+            <p class="error" role="alert">{{ i18n.t(error) }}</p>
           }
           <button class="btn btn-gold" type="submit" [disabled]="saving()">
-            {{ saving() ? 'Un instant…' : 'Enregistrer et entrer' }}
+            {{ i18n.t(saving() ? 'common.wait' : 'newPassword.submit') }}
           </button>
         </form>
       }
@@ -57,10 +57,10 @@ export class NewPasswordPage {
   protected readonly session = inject(SessionService);
   private readonly router = inject(Router);
 
-  readonly rule = PASSWORD_RULE;
+  protected readonly i18n = inject(I18n);
   readonly checking = signal(true);
   readonly saving = signal(false);
-  readonly error = signal<string | null>(null);
+  readonly error = signal<TKey | null>(null);
   password = '';
   confirm = '';
 
@@ -76,7 +76,7 @@ export class NewPasswordPage {
       return;
     }
     if (this.password !== this.confirm) {
-      this.error.set('Les deux mots de passe ne sont pas identiques.');
+      this.error.set('pw.mismatch');
       return;
     }
     this.saving.set(true);

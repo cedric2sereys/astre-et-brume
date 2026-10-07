@@ -1,67 +1,48 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { PASSWORD_RULE, SessionService, passwordProblem } from '../core/session.service';
+import { I18n, TKey } from '../core/i18n';
+import { SessionService, passwordProblem } from '../core/session.service';
 
 type Mode = 'signin' | 'signup' | 'forgot';
-
-const TEXTS: Record<Mode, { title: string; lead: string; submit: string }> = {
-  signin: {
-    title: 'Connexion',
-    lead: "Entrez votre email et votre mot de passe pour accéder à l'atelier.",
-    submit: "Entrer dans l'atelier",
-  },
-  signup: {
-    title: 'Créer un compte',
-    lead: `Choisissez un email et un mot de passe (${PASSWORD_RULE}) pour ouvrir votre atelier.`,
-    submit: 'Créer mon compte',
-  },
-  forgot: {
-    title: 'Mot de passe oublié',
-    lead: 'Entrez votre email : nous vous enverrons un lien pour choisir un nouveau mot de passe.',
-    submit: 'Envoyer le lien',
-  },
-};
 
 @Component({
   selector: 'app-auth-page',
   imports: [FormsModule],
   template: `
-    <p class="intro">
-      Votre compagnon astrologique conversationnel pour une expérience consultative personnalisée,
-      active et durable dans le temps.
-    </p>
+    <p class="intro">{{ i18n.t('auth.intro') }}</p>
 
     <section class="card">
-      <p class="eyebrow">Entrée de l'atelier</p>
-      <h1 class="title">{{ texts().title }}</h1>
+      <p class="eyebrow">{{ i18n.t('auth.eyebrow') }}</p>
+      <h1 class="title">{{ i18n.t(key('title')) }}</h1>
 
       @if (resetSent()) {
         <p class="lead">
-          Si un compte existe pour <strong>{{ email.trim() }}</strong>, un email vient de partir avec
-          un lien pour choisir un nouveau mot de passe. Pensez à regarder dans les indésirables.
+          {{ i18n.t('auth.resetSent.before') }} <strong>{{ email.trim() }}</strong>{{ i18n.t('auth.resetSent.after') }}
         </p>
-        <button class="btn btn-outline" type="button" (click)="setMode('signin')">Retour à la connexion</button>
+        <button class="btn btn-outline" type="button" (click)="setMode('signin')">
+          {{ i18n.t('auth.backToSignin') }}
+        </button>
       } @else {
-        <p class="lead">{{ texts().lead }}</p>
+        <p class="lead">{{ i18n.t(key('lead')) }}</p>
 
         <form (ngSubmit)="submit()" novalidate>
           <!-- Side by side on wide screens, stacked on phones -->
           <div class="creds" [class.single]="mode() === 'forgot'">
             <label class="field">
-              <span class="field-label">Email</span>
+              <span class="field-label">{{ i18n.t('auth.email') }}</span>
               <input
                 class="input"
                 type="email"
                 name="email"
                 autocomplete="email"
-                placeholder="vous@exemple.fr"
+                [placeholder]="i18n.t('auth.emailPlaceholder')"
                 [(ngModel)]="email"
               />
             </label>
             @if (mode() !== 'forgot') {
               <label class="field">
-                <span class="field-label">Mot de passe</span>
+                <span class="field-label">{{ i18n.t('auth.password') }}</span>
                 <input
                   class="input"
                   type="password"
@@ -75,27 +56,29 @@ const TEXTS: Record<Mode, { title: string; lead: string; submit: string }> = {
           </div>
           @if (mode() === 'signin') {
             <p class="forgot">
-              <button class="link" type="button" (click)="setMode('forgot')">Mot de passe oublié ?</button>
+              <button class="link" type="button" (click)="setMode('forgot')">
+                {{ i18n.t('auth.forgotLink') }}
+              </button>
             </p>
           }
 
-          @if (error()) {
-            <p class="error" role="alert">{{ error() }}</p>
+          @if (error(); as error) {
+            <p class="error" role="alert">{{ i18n.t(error) }}</p>
           }
 
           <button class="btn btn-gold" type="submit" [disabled]="loading()">
-            {{ loading() ? 'Un instant…' : texts().submit }}
+            {{ loading() ? i18n.t('common.wait') : i18n.t(key('submit')) }}
           </button>
         </form>
 
         <p class="switch">
           @if (mode() === 'signin') {
             <button class="link link-mono" type="button" (click)="setMode('signup')">
-              Pas encore de compte ? En créer un
+              {{ i18n.t('auth.toSignup') }}
             </button>
           } @else {
             <button class="link link-mono" type="button" (click)="setMode('signin')">
-              {{ mode() === 'signup' ? 'Déjà un compte ? Se connecter' : 'Retour à la connexion' }}
+              {{ i18n.t(mode() === 'signup' ? 'auth.toSignin' : 'auth.backToSignin') }}
             </button>
           }
         </p>
@@ -150,14 +133,19 @@ const TEXTS: Record<Mode, { title: string; lead: string; submit: string }> = {
 export class AuthPage {
   private readonly session = inject(SessionService);
   private readonly router = inject(Router);
+  protected readonly i18n = inject(I18n);
 
   readonly mode = signal<Mode>('signin');
-  readonly texts = computed(() => TEXTS[this.mode()]);
-  readonly error = signal<string | null>(null);
+  readonly error = signal<TKey | null>(null);
   readonly loading = signal(false);
   readonly resetSent = signal(false);
   email = '';
   password = '';
+
+  /** Text key for the current mode, e.g. key('title') → 'auth.signup.title'. */
+  key(part: 'title' | 'lead' | 'submit'): TKey {
+    return `auth.${this.mode()}.${part}` as TKey;
+  }
 
   setMode(mode: Mode): void {
     this.mode.set(mode);
@@ -168,7 +156,7 @@ export class AuthPage {
   async submit(): Promise<void> {
     if (this.loading()) return;
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.email.trim())) {
-      this.error.set('Veuillez saisir une adresse email valide.');
+      this.error.set('auth.err.email');
       return;
     }
     // New accounts must follow the password rule. Sign-in only needs a password: older
@@ -179,7 +167,7 @@ export class AuthPage {
       return;
     }
     if (this.mode() === 'signin' && !this.password) {
-      this.error.set('Veuillez saisir votre mot de passe.');
+      this.error.set('auth.err.password');
       return;
     }
 

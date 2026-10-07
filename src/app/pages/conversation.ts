@@ -4,15 +4,17 @@ import { Router } from '@angular/router';
 import { SessionService } from '../core/session.service';
 import { AgentError, AgentService } from '../core/agent.service';
 import { Conversation, ConversationsService } from '../core/conversations.service';
+import { I18n, TKey } from '../core/i18n';
 import { MarkdownPipe } from '../core/markdown.pipe';
 
 interface Message {
   from: 'agent' | 'user';
   text: string;
+  /** The app's opening greeting: not stored, shown in the current interface language. */
+  greeting?: boolean;
 }
 
-const GREETING =
-  'Bonjour, comment puis-je t’aider ? Souhaites-tu que je te donne ton horoscope du jour personnalisé ?';
+const GREETING: Message = { from: 'agent', text: '', greeting: true };
 
 @Component({
   selector: 'app-conversation-page',
@@ -31,7 +33,7 @@ const GREETING =
             </div>
           }
         </div>
-        <button class="pill" type="button" (click)="newChart()">Nouveau relevé</button>
+        <button class="pill" type="button" (click)="newChart()">{{ i18n.t('chat.newChart') }}</button>
       </header>
 
       <div class="toolbar">
@@ -41,7 +43,7 @@ const GREETING =
           [attr.aria-expanded]="panelOpen()"
           (click)="panelOpen.set(!panelOpen())"
         >
-          Mes conversations ({{ conversations().length }})
+          {{ i18n.t('chat.myConversations', { count: conversations().length }) }}
         </button>
         <button
           class="pill"
@@ -49,14 +51,14 @@ const GREETING =
           [disabled]="busy() || currentId() === null"
           (click)="startNew()"
         >
-          + Nouvelle conversation
+          {{ i18n.t('chat.newConversation') }}
         </button>
       </div>
 
       @if (panelOpen()) {
-        <nav class="card list" aria-label="Mes conversations">
+        <nav class="card list" [attr.aria-label]="i18n.t('chat.conversationsLabel')">
           @if (!conversations().length) {
-            <p class="empty">Aucune conversation enregistrée pour l'instant.</p>
+            <p class="empty">{{ i18n.t('chat.noConversations') }}</p>
           }
           <ul>
             @for (c of conversations(); track c.id) {
@@ -68,7 +70,7 @@ const GREETING =
                   [disabled]="busy()"
                   (click)="open(c.id)"
                 >
-                  <span class="title">{{ c.title || 'Conversation' }}</span>
+                  <span class="title">{{ c.title || i18n.t('chat.untitled') }}</span>
                   <span class="when">{{ formatWhen(c.updated_at) }}</span>
                 </button>
               </li>
@@ -81,8 +83,8 @@ const GREETING =
         @for (m of messages(); track $index) {
           @if (m.from === 'agent') {
             <div class="bubble agent">
-              <span class="eyebrow">L'agent</span>
-              <div class="md" [innerHTML]="m.text | markdown"></div>
+              <span class="eyebrow">{{ i18n.t('chat.agent') }}</span>
+              <div class="md" [innerHTML]="(m.greeting ? i18n.t('chat.greeting') : m.text) | markdown"></div>
             </div>
           } @else {
             <div class="bubble user"><p>{{ m.text }}</p></div>
@@ -90,26 +92,28 @@ const GREETING =
         }
         @if (waiting()) {
           <div class="bubble agent typing">
-            <span class="eyebrow">L'agent</span>
-            <p>Je suis en train de consulter les astres, un tout petit peu de patience…<span class="dots"><span></span><span></span><span></span></span></p>
+            <span class="eyebrow">{{ i18n.t('chat.agent') }}</span>
+            <p>{{ i18n.t('chat.thinking') }}<span class="dots"><span></span><span></span><span></span></span></p>
           </div>
         }
         <div #end></div>
       </div>
 
-      @if (error()) {
-        <p class="error" role="alert">{{ error() }}</p>
+      @if (error(); as error) {
+        <p class="error" role="alert">{{ i18n.t(error) }}</p>
       }
       <form class="composer" (ngSubmit)="send()">
         <textarea
           class="input"
           name="draft"
           rows="1"
-          placeholder="Posez votre question aux astres…"
+          [placeholder]="i18n.t('chat.placeholder')"
           [(ngModel)]="draft"
           (keydown.enter)="onEnter($event)"
         ></textarea>
-        <button class="btn btn-gold" type="submit" [disabled]="!draft.trim() || busy()">Envoyer</button>
+        <button class="btn btn-gold" type="submit" [disabled]="!draft.trim() || busy()">
+          {{ i18n.t('chat.send') }}
+        </button>
       </form>
     </section>
   `,
@@ -225,6 +229,7 @@ const GREETING =
 })
 export class ConversationPage {
   protected readonly session = inject(SessionService);
+  protected readonly i18n = inject(I18n);
   private readonly router = inject(Router);
   private readonly store = inject(ConversationsService);
   private readonly agent = inject(AgentService);
@@ -237,14 +242,14 @@ export class ConversationPage {
   readonly busy = signal(false);
   /** True until the first words of the reply arrive (shows "consulter les astres"). */
   readonly waiting = signal(false);
-  readonly error = signal<string | null>(null);
+  readonly error = signal<TKey | null>(null);
 
   readonly conversations = signal<Conversation[]>([]);
   /** The open conversation; null = a new one, created on the server with its first message. */
   readonly currentId = signal<string | null>(null);
   readonly panelOpen = signal(false);
   // The greeting always opens a conversation; it is not stored. Saved messages follow it.
-  readonly messages = signal<Message[]>([{ from: 'agent', text: GREETING }]);
+  readonly messages = signal<Message[]>([GREETING]);
   draft = '';
 
   constructor() {
@@ -264,7 +269,7 @@ export class ConversationPage {
       if (list.length) await this.open(list[0].id);
     } catch (e) {
       console.error('Loading conversations failed', e);
-      this.error.set("Vos conversations n'ont pas pu être chargées.");
+      this.error.set('chat.err.list');
     }
   }
 
@@ -273,17 +278,17 @@ export class ConversationPage {
     this.currentId.set(id);
     this.panelOpen.set(false);
     this.error.set(null);
-    this.messages.set([{ from: 'agent', text: GREETING }]);
+    this.messages.set([GREETING]);
     try {
       const saved = await this.store.messages(id);
       if (this.currentId() !== id) return; // another conversation was opened meanwhile
       this.messages.set([
-        { from: 'agent', text: GREETING },
+        GREETING,
         ...saved.map((m): Message => ({ from: m.role === 'user' ? 'user' : 'agent', text: m.content })),
       ]);
     } catch (e) {
       console.error('Loading conversation failed', e);
-      this.error.set("Cette conversation n'a pas pu être chargée.");
+      this.error.set('chat.err.load');
     }
   }
 
@@ -292,7 +297,7 @@ export class ConversationPage {
     this.currentId.set(null);
     this.panelOpen.set(false);
     this.error.set(null);
-    this.messages.set([{ from: 'agent', text: GREETING }]);
+    this.messages.set([GREETING]);
   }
 
   formatDate(iso: string): string {
@@ -300,13 +305,14 @@ export class ConversationPage {
     return `${d}/${m}/${y}`;
   }
 
-  /** "Aujourd'hui, 14:05" for today, otherwise "3 oct. 2026". */
+  /** "Aujourd'hui, 14:05" / "Today, 14:05" for today, otherwise "3 oct. 2026" / "3 Oct 2026". */
   formatWhen(iso: string): string {
     const date = new Date(iso);
     if (date.toDateString() === new Date().toDateString()) {
-      return `Aujourd'hui, ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+      const time = date.toLocaleTimeString(this.i18n.locale, { hour: '2-digit', minute: '2-digit' });
+      return this.i18n.t('chat.today', { time });
     }
-    return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+    return date.toLocaleDateString(this.i18n.locale, { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
   onEnter(event: Event): void {
@@ -356,7 +362,7 @@ export class ConversationPage {
       // Nothing was saved: take the message (and any partial reply) back so it can be sent again.
       this.messages.update((list) => list.slice(0, before));
       this.draft = text;
-      this.error.set(e instanceof AgentError ? e.message : AgentError.GENERIC);
+      this.error.set(e instanceof AgentError ? e.key : 'agent.generic');
     } finally {
       this.waiting.set(false);
       this.busy.set(false);

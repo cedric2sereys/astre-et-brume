@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { I18n, TKey } from '../core/i18n';
 import { SessionService } from '../core/session.service';
 
 @Component({
@@ -8,25 +9,25 @@ import { SessionService } from '../core/session.service';
   imports: [FormsModule],
   template: `
     <section class="card">
-      <p class="eyebrow">Première visite</p>
-      <h1 class="title">Comment vous appeler ?</h1>
-      <p class="lead">Choisissez un pseudo : l'agent s'adressera à vous ainsi.</p>
+      <p class="eyebrow">{{ i18n.t('pseudo.eyebrow') }}</p>
+      <h1 class="title">{{ i18n.t('pseudo.title') }}</h1>
+      <p class="lead">{{ i18n.t('pseudo.lead') }}</p>
 
       <form (ngSubmit)="submit()">
         <input
           class="input"
           name="pseudo"
-          placeholder="Votre pseudo"
+          [placeholder]="i18n.t('pseudo.placeholder')"
           maxlength="32"
           autocomplete="nickname"
           autofocus
           [(ngModel)]="pseudo"
         />
-        @if (error()) {
-          <p class="error submit-error" role="alert">{{ error() }}</p>
+        @if (error(); as error) {
+          <p class="error submit-error" role="alert">{{ i18n.t(error) }}</p>
         }
         <button class="btn btn-gold" type="submit" [disabled]="!pseudo.trim() || saving()">
-          {{ saving() ? 'Un instant…' : 'Continuer' }}
+          {{ i18n.t(saving() ? 'common.wait' : 'common.continue') }}
         </button>
       </form>
     </section>
@@ -43,9 +44,10 @@ import { SessionService } from '../core/session.service';
 export class PseudoPage {
   private readonly session = inject(SessionService);
   private readonly router = inject(Router);
+  protected readonly i18n = inject(I18n);
 
   readonly saving = signal(false);
-  readonly error = signal<string | null>(null);
+  readonly error = signal<TKey | null>(null);
   pseudo = this.session.pseudo() ?? '';
 
   async submit(): Promise<void> {

@@ -2,59 +2,59 @@ import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { GeocodingService, Place } from '../core/geocoding.service';
+import { I18n, TKey } from '../core/i18n';
 import { HOUSE_SYSTEMS, HouseSystem, SessionService } from '../core/session.service';
 
 interface TimezoneOption {
   id: string; // IANA name, sent to the astrology API
-  label: string;
+  name: TKey; // translated country / area name
+  offset: string;
 }
 
-const TIMEZONE_GROUPS: { region: string; zones: TimezoneOption[] }[] = [
+// Shown as "Europe/London (United Kingdom, UTC+0/+1)".
+const TIMEZONE_GROUPS: { region: TKey; zones: TimezoneOption[] }[] = [
   {
-    region: 'Europe',
+    region: 'tz.europe',
     zones: [
-      { id: 'Europe/London', label: 'Europe/London (Royaume-Uni, UTC+0/+1)' },
-      { id: 'Europe/Paris', label: 'Europe/Paris (France, UTC+1/+2)' },
-      { id: 'Europe/Berlin', label: 'Europe/Berlin (Allemagne, UTC+1/+2)' },
-      { id: 'Europe/Moscow', label: 'Europe/Moscow (Russie, UTC+3)' },
+      { id: 'Europe/London', name: 'tz.uk', offset: 'UTC+0/+1' },
+      { id: 'Europe/Paris', name: 'tz.france', offset: 'UTC+1/+2' },
+      { id: 'Europe/Berlin', name: 'tz.germany', offset: 'UTC+1/+2' },
+      { id: 'Europe/Moscow', name: 'tz.russia', offset: 'UTC+3' },
     ],
   },
   {
-    region: 'Amériques',
+    region: 'tz.americas',
     zones: [
-      { id: 'America/New_York', label: 'America/New_York (Heure de l’Est, UTC-5/-4)' },
-      { id: 'America/Chicago', label: 'America/Chicago (Heure du Centre, UTC-6/-5)' },
-      { id: 'America/Denver', label: 'America/Denver (Heure des Rocheuses, UTC-7/-6)' },
-      { id: 'America/Los_Angeles', label: 'America/Los_Angeles (Heure du Pacifique, UTC-8/-7)' },
-      { id: 'America/Sao_Paulo', label: 'America/Sao_Paulo (Brésil, UTC-3)' },
-      { id: 'America/Mexico_City', label: 'America/Mexico_City (Mexique, UTC-6/-5)' },
-      {
-        id: 'America/Argentina/Buenos_Aires',
-        label: 'America/Argentina/Buenos_Aires (Argentine, UTC-3)',
-      },
+      { id: 'America/New_York', name: 'tz.eastern', offset: 'UTC-5/-4' },
+      { id: 'America/Chicago', name: 'tz.central', offset: 'UTC-6/-5' },
+      { id: 'America/Denver', name: 'tz.mountain', offset: 'UTC-7/-6' },
+      { id: 'America/Los_Angeles', name: 'tz.pacific', offset: 'UTC-8/-7' },
+      { id: 'America/Sao_Paulo', name: 'tz.brazil', offset: 'UTC-3' },
+      { id: 'America/Mexico_City', name: 'tz.mexico', offset: 'UTC-6/-5' },
+      { id: 'America/Argentina/Buenos_Aires', name: 'tz.argentina', offset: 'UTC-3' },
     ],
   },
   {
-    region: 'Afrique',
+    region: 'tz.africa',
     zones: [
-      { id: 'Africa/Cairo', label: 'Africa/Cairo (Égypte, UTC+2/+3)' },
-      { id: 'Africa/Johannesburg', label: 'Africa/Johannesburg (Afrique du Sud, UTC+2)' },
-      { id: 'Africa/Lagos', label: 'Africa/Lagos (Nigeria, UTC+1)' },
+      { id: 'Africa/Cairo', name: 'tz.egypt', offset: 'UTC+2/+3' },
+      { id: 'Africa/Johannesburg', name: 'tz.southAfrica', offset: 'UTC+2' },
+      { id: 'Africa/Lagos', name: 'tz.nigeria', offset: 'UTC+1' },
     ],
   },
   {
-    region: 'Asie',
+    region: 'tz.asia',
     zones: [
-      { id: 'Asia/Tokyo', label: 'Asia/Tokyo (Japon, UTC+9)' },
-      { id: 'Asia/Shanghai', label: 'Asia/Shanghai (Chine, UTC+8)' },
-      { id: 'Asia/Dubai', label: 'Asia/Dubai (Émirats Arabes Unis, UTC+4)' },
-      { id: 'Asia/Kolkata', label: 'Asia/Kolkata (Inde, UTC+5:30)' },
-      { id: 'Asia/Jakarta', label: 'Asia/Jakarta (Indonésie, UTC+7)' },
+      { id: 'Asia/Tokyo', name: 'tz.japan', offset: 'UTC+9' },
+      { id: 'Asia/Shanghai', name: 'tz.china', offset: 'UTC+8' },
+      { id: 'Asia/Dubai', name: 'tz.uae', offset: 'UTC+4' },
+      { id: 'Asia/Kolkata', name: 'tz.india', offset: 'UTC+5:30' },
+      { id: 'Asia/Jakarta', name: 'tz.indonesia', offset: 'UTC+7' },
     ],
   },
   {
-    region: 'Océanie',
-    zones: [{ id: 'Australia/Sydney', label: 'Australia/Sydney (Australie, UTC+10/+11)' }],
+    region: 'tz.oceania',
+    zones: [{ id: 'Australia/Sydney', name: 'tz.australia', offset: 'UTC+10/+11' }],
   },
 ];
 
@@ -66,21 +66,18 @@ const BROWSER_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
   imports: [FormsModule],
   template: `
     <section class="wrap">
-      <p class="eyebrow">Relevé de naissance</p>
-      <h1 class="title">Établissons votre thème astral</h1>
-      <p class="lead">
-        Renseignez votre date, votre heure et votre lieu de naissance : l'agent s'en servira pour
-        calculer votre thème et votre horoscope du jour.
-      </p>
+      <p class="eyebrow">{{ i18n.t('releve.eyebrow') }}</p>
+      <h1 class="title">{{ i18n.t('releve.title') }}</h1>
+      <p class="lead">{{ i18n.t('releve.lead') }}</p>
 
       <form class="card" (ngSubmit)="save()" novalidate>
         <div class="row">
           <label class="field">
-            <span class="field-label">Date de naissance</span>
+            <span class="field-label">{{ i18n.t('releve.date') }}</span>
             <input class="input" type="date" name="date" [(ngModel)]="date" required />
           </label>
           <label class="field">
-            <span class="field-label">Heure (HH:MM)</span>
+            <span class="field-label">{{ i18n.t('releve.time') }}</span>
             <input
               class="input"
               name="time"
@@ -94,11 +91,13 @@ const BROWSER_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
         </div>
 
         <div class="field">
-          <label class="field-label" for="place">Lieu de naissance</label>
+          <label class="field-label" for="place">{{ i18n.t('releve.place') }}</label>
           @if (place(); as p) {
             <div class="chosen">
               <span>{{ p.label }}</span>
-              <button class="link link-mono" type="button" (click)="clearPlace()">Modifier</button>
+              <button class="link link-mono" type="button" (click)="clearPlace()">
+                {{ i18n.t('releve.change') }}
+              </button>
             </div>
           } @else {
             <div class="search">
@@ -106,7 +105,7 @@ const BROWSER_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
                 class="input"
                 id="place"
                 name="placeQuery"
-                placeholder="Ville, pays — ex. Paris, France"
+                [placeholder]="i18n.t('releve.placePlaceholder')"
                 [(ngModel)]="placeQuery"
                 (keydown.enter)="searchPlace($event)"
               />
@@ -116,7 +115,7 @@ const BROWSER_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
                 [disabled]="searching() || placeQuery.trim().length < 2"
                 (click)="searchPlace()"
               >
-                {{ searching() ? '…' : 'Rechercher' }}
+                {{ searching() ? '…' : i18n.t('releve.search') }}
               </button>
             </div>
             @if (results().length) {
@@ -126,27 +125,27 @@ const BROWSER_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
                 }
               </ul>
             }
-            @if (searchMessage()) {
-              <p class="hint">{{ searchMessage() }}</p>
+            @if (searchMessage(); as message) {
+              <p class="hint">{{ i18n.t(message) }}</p>
             }
           }
         </div>
 
         <div class="row">
           <label class="field">
-            <span class="field-label">Fuseau horaire</span>
+            <span class="field-label">{{ i18n.t('releve.timezone') }}</span>
             <select class="input" name="timezone" [(ngModel)]="timezone">
               @for (group of timezoneGroups; track group.region) {
-                <optgroup [label]="group.region">
+                <optgroup [label]="i18n.t(group.region)">
                   @for (tz of group.zones; track tz.id) {
-                    <option [value]="tz.id">{{ tz.label }}</option>
+                    <option [value]="tz.id">{{ tz.id }} ({{ i18n.t(tz.name) }}, {{ tz.offset }})</option>
                   }
                 </optgroup>
               }
             </select>
           </label>
           <label class="field">
-            <span class="field-label">Système de maisons</span>
+            <span class="field-label">{{ i18n.t('releve.houseSystem') }}</span>
             <select class="input" name="houseSystem" [(ngModel)]="houseSystem">
               @for (h of houseSystems; track h) {
                 <option [value]="h">{{ h }}</option>
@@ -155,11 +154,11 @@ const BROWSER_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
           </label>
         </div>
 
-        @if (error()) {
-          <p class="error" role="alert">{{ error() }}</p>
+        @if (error(); as error) {
+          <p class="error" role="alert">{{ i18n.t(error) }}</p>
         }
         <button class="btn btn-gold" type="submit" [disabled]="saving()">
-          {{ saving() ? 'Enregistrement…' : "Valider et rejoindre l'agent" }}
+          {{ i18n.t(saving() ? 'common.saving' : 'releve.submit') }}
         </button>
       </form>
     </section>
@@ -199,6 +198,7 @@ export class RelevePage {
   private readonly session = inject(SessionService);
   private readonly geocoding = inject(GeocodingService);
   private readonly router = inject(Router);
+  protected readonly i18n = inject(I18n);
 
   readonly houseSystems = HOUSE_SYSTEMS;
   readonly timezoneGroups = TIMEZONE_GROUPS;
@@ -206,8 +206,8 @@ export class RelevePage {
   readonly place = signal<Place | null>(null);
   readonly results = signal<Place[]>([]);
   readonly searching = signal(false);
-  readonly searchMessage = signal<string | null>(null);
-  readonly error = signal<string | null>(null);
+  readonly searchMessage = signal<TKey | null>(null);
+  readonly error = signal<TKey | null>(null);
   readonly saving = signal(false);
 
   // "Nouveau relevé" comes back here with the saved chart pre-filled.
@@ -251,9 +251,9 @@ export class RelevePage {
     try {
       const found = await this.geocoding.search(q);
       this.results.set(found);
-      if (!found.length) this.searchMessage.set('Aucun lieu trouvé. Essayez « Ville, Pays ».');
+      if (!found.length) this.searchMessage.set('releve.noPlace');
     } catch {
-      this.searchMessage.set('La recherche a échoué. Vérifiez votre connexion et réessayez.');
+      this.searchMessage.set('releve.searchFailed');
     } finally {
       this.searching.set(false);
     }
@@ -273,11 +273,11 @@ export class RelevePage {
     if (this.saving()) return;
     this.normalizeTime();
     const place = this.place();
-    if (!this.date) return this.error.set('Merci de renseigner votre date de naissance.');
+    if (!this.date) return this.error.set('releve.err.date');
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(this.time)) {
-      return this.error.set("L'heure doit être au format HH:MM, par exemple 00:00 pour minuit.");
+      return this.error.set('releve.err.time');
     }
-    if (!place) return this.error.set('Recherchez puis sélectionnez votre lieu de naissance.');
+    if (!place) return this.error.set('releve.err.place');
 
     this.saving.set(true);
     this.error.set(null);

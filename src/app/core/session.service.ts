@@ -1,5 +1,6 @@
 import { Injectable, computed, signal } from '@angular/core';
 import { AuthError } from '@supabase/supabase-js';
+import { MIN_PASSWORD_LENGTH, TKey } from './i18n';
 import { supabase } from './supabase';
 
 export interface BirthChart {
@@ -21,41 +22,33 @@ export function birthDateTimeIso(chart: BirthChart): string {
 }
 
 /**
- * Must match Supabase → Authentication → Email: "Minimum password length" = 8 and
- * "Password requirements" = letters and digits. Supabase enforces it; this only gives a
- * clear message before sending.
+ * What's wrong with a new password, or null if it follows the rule. Must match Supabase →
+ * Authentication → Email: "Minimum password length" = 8 and "Password requirements" = letters
+ * and digits. Supabase enforces it; this only gives a clear message before sending.
  */
-export const MIN_PASSWORD_LENGTH = 8;
-export const PASSWORD_RULE = `${MIN_PASSWORD_LENGTH} caractères au minimum, avec des lettres et des chiffres`;
-
-/** What's wrong with a new password, or null if it follows the rule. */
-export function passwordProblem(password: string): string | null {
-  if (password.length < MIN_PASSWORD_LENGTH) {
-    return `Le mot de passe doit contenir au moins ${MIN_PASSWORD_LENGTH} caractères.`;
-  }
-  if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
-    return 'Le mot de passe doit contenir au moins une lettre et un chiffre.';
-  }
+export function passwordProblem(password: string): TKey | null {
+  if (password.length < MIN_PASSWORD_LENGTH) return 'pw.tooShort';
+  if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) return 'pw.lettersDigits';
   return null;
 }
 
-/** Turns Supabase auth errors into messages for the user. */
-function authErrorMessage(error: AuthError): string {
+/** Turns Supabase auth errors into a message key for the user. */
+function authErrorMessage(error: AuthError): TKey {
   switch (error.code) {
     case 'invalid_credentials':
-      return 'Email ou mot de passe incorrect.';
+      return 'authErr.invalidCredentials';
     case 'user_already_exists':
     case 'email_exists':
-      return 'Un compte existe déjà avec cet email. Connectez-vous plutôt.';
+      return 'authErr.exists';
     case 'weak_password':
-      return `Mot de passe trop faible : ${PASSWORD_RULE}.`;
+      return 'authErr.weak';
     case 'same_password':
-      return "Le nouveau mot de passe doit être différent de l'ancien.";
+      return 'authErr.same';
     case 'over_request_rate_limit':
     case 'over_email_send_rate_limit':
-      return 'Trop de tentatives. Patientez une minute puis réessayez.';
+      return 'authErr.rateLimit';
     default:
-      return 'La connexion a échoué. Vérifiez votre connexion internet et réessayez.';
+      return 'authErr.generic';
   }
 }
 
@@ -70,7 +63,7 @@ interface ProfileRow {
   house_system: HouseSystem | null;
 }
 
-const SAVE_ERROR = "L'enregistrement a échoué. Vérifiez votre connexion internet et réessayez.";
+const SAVE_ERROR: TKey = 'save.failed';
 
 /**
  * Holds the signed-in user (Supabase Auth) and their profile (public.profiles):
@@ -99,7 +92,7 @@ export class SessionService {
   }
 
   /** Returns an error message, or null on success. */
-  async signIn(email: string, password: string): Promise<string | null> {
+  async signIn(email: string, password: string): Promise<TKey | null> {
     const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (error) return authErrorMessage(error);
     await this.startSession(data.user.id, data.user.email);
@@ -107,11 +100,11 @@ export class SessionService {
   }
 
   /** Returns an error message, or null on success. */
-  async signUp(email: string, password: string): Promise<string | null> {
+  async signUp(email: string, password: string): Promise<TKey | null> {
     const { data, error } = await supabase.auth.signUp({ email: email.trim(), password });
     if (error) return authErrorMessage(error);
     // Email confirmation is off on this project, so sign-up returns a session right away.
-    if (!data.session || !data.user) return 'Compte créé : confirmez votre email puis connectez-vous.';
+    if (!data.session || !data.user) return 'authErr.confirmEmail';
     await this.startSession(data.user.id, data.user.email);
     return null;
   }
@@ -125,7 +118,7 @@ export class SessionService {
    * Emails a link to /nouveau-mot-de-passe. Returns an error message, or null.
    * Succeeds even for unknown emails, so the form doesn't reveal who has an account.
    */
-  async requestPasswordReset(email: string): Promise<string | null> {
+  async requestPasswordReset(email: string): Promise<TKey | null> {
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
       redirectTo: `${window.location.origin}/nouveau-mot-de-passe`,
     });
@@ -136,11 +129,11 @@ export class SessionService {
    * Permanently deletes the signed-in user's account and all their data (see migration 004),
    * then signs out locally. Returns an error message, or null.
    */
-  async deleteAccount(): Promise<string | null> {
+  async deleteAccount(): Promise<TKey | null> {
     const { error } = await supabase.rpc('delete_my_account');
     if (error) {
       console.error('Deleting account failed', error);
-      return "La suppression a échoué. Vérifiez votre connexion internet et réessayez.";
+      return 'account.delete.failed';
     }
     // The session no longer exists on the server: just forget it in this browser.
     await supabase.auth.signOut({ scope: 'local' });
@@ -149,13 +142,13 @@ export class SessionService {
   }
 
   /** Sets a new password for the signed-in user (reached from the reset link). */
-  async updatePassword(password: string): Promise<string | null> {
+  async updatePassword(password: string): Promise<TKey | null> {
     const { error } = await supabase.auth.updateUser({ password });
     return error ? authErrorMessage(error) : null;
   }
 
   /** Saves the nickname (creates the profile on first visit). Returns an error message, or null. */
-  async setPseudo(pseudo: string): Promise<string | null> {
+  async setPseudo(pseudo: string): Promise<TKey | null> {
     const id = this.userId();
     if (!id) return SAVE_ERROR;
     const { error } = await supabase
@@ -170,7 +163,7 @@ export class SessionService {
   }
 
   /** Saves the birth data on the profile. Returns an error message, or null. */
-  async saveChart(chart: BirthChart): Promise<string | null> {
+  async saveChart(chart: BirthChart): Promise<TKey | null> {
     const id = this.userId();
     if (!id) return SAVE_ERROR;
     const { error } = await supabase

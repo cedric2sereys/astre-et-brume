@@ -1,39 +1,37 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { I18n, TKey } from '../core/i18n';
 import { SessionService } from '../core/session.service';
-
-const CONFIRM_WORD = 'SUPPRIMER';
 
 @Component({
   selector: 'app-account-page',
   imports: [FormsModule],
   template: `
     <section class="wrap">
-      <p class="eyebrow">Mon compte</p>
-      <h1 class="title">{{ session.pseudo() ?? 'Votre compte' }}</h1>
-      <p class="lead">Connecté avec <strong>{{ session.email() }}</strong></p>
+      <p class="eyebrow">{{ i18n.t('account.eyebrow') }}</p>
+      <h1 class="title">{{ session.pseudo() ?? i18n.t('account.titleFallback') }}</h1>
+      <p class="lead">{{ i18n.t('account.signedInAs') }} <strong>{{ session.email() }}</strong></p>
 
-      <button class="link back" type="button" (click)="back()">← Retour à l'atelier</button>
+      <button class="link back" type="button" (click)="back()">{{ i18n.t('account.back') }}</button>
 
       <div class="card danger">
-        <h2>Supprimer mon compte</h2>
+        <h2>{{ i18n.t('account.delete.title') }}</h2>
         <p>
-          Cette action est <strong>définitive</strong>. Elle efface votre compte et toutes vos
-          données : pseudo, date, heure et lieu de naissance, conversations, messages et calculs
-          astrologiques enregistrés. Rien ne pourra être récupéré.
+          {{ i18n.t('account.delete.before') }}
+          <strong>{{ i18n.t('account.delete.strong') }}</strong>{{ i18n.t('account.delete.after') }}
         </p>
         <form (ngSubmit)="deleteAccount()" novalidate>
           <label class="field">
-            <span class="field-label">Pour confirmer, tapez {{ confirmWord }}</span>
-            <input class="input" name="confirm" autocomplete="off" [placeholder]="confirmWord"
+            <span class="field-label">{{ i18n.t('account.delete.confirmLabel', { word: confirmWord() }) }}</span>
+            <input class="input" name="confirm" autocomplete="off" [placeholder]="confirmWord()"
               [(ngModel)]="typed" />
           </label>
-          @if (error()) {
-            <p class="error" role="alert">{{ error() }}</p>
+          @if (error(); as error) {
+            <p class="error" role="alert">{{ i18n.t(error) }}</p>
           }
-          <button class="btn btn-danger" type="submit" [disabled]="typed.trim() !== confirmWord || deleting()">
-            {{ deleting() ? 'Suppression…' : 'Supprimer définitivement mon compte' }}
+          <button class="btn btn-danger" type="submit" [disabled]="!confirmed() || deleting()">
+            {{ i18n.t(deleting() ? 'account.delete.deleting' : 'account.delete.submit') }}
           </button>
         </form>
       </div>
@@ -61,13 +59,20 @@ export class AccountPage {
   protected readonly session = inject(SessionService);
   private readonly router = inject(Router);
 
-  readonly confirmWord = CONFIRM_WORD;
+  protected readonly i18n = inject(I18n);
+
+  /** SUPPRIMER in French, DELETE in English. */
+  readonly confirmWord = () => this.i18n.t('account.delete.word');
   readonly deleting = signal(false);
-  readonly error = signal<string | null>(null);
+  readonly error = signal<TKey | null>(null);
   typed = '';
 
+  confirmed(): boolean {
+    return this.typed.trim().toUpperCase() === this.confirmWord();
+  }
+
   async deleteAccount(): Promise<void> {
-    if (this.typed.trim() !== CONFIRM_WORD || this.deleting()) return;
+    if (!this.confirmed() || this.deleting()) return;
     this.deleting.set(true);
     this.error.set(null);
     const error = await this.session.deleteAccount();
