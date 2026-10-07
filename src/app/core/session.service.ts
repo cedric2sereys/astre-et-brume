@@ -20,6 +20,9 @@ export function birthDateTimeIso(chart: BirthChart): string {
   return `${chart.date}T${chart.time}:00`;
 }
 
+/** Must match Supabase → Authentication → Email → "Minimum password length". */
+export const MIN_PASSWORD_LENGTH = 8;
+
 /** Turns Supabase auth errors into messages for the user. */
 function authErrorMessage(error: AuthError): string {
   switch (error.code) {
@@ -29,7 +32,7 @@ function authErrorMessage(error: AuthError): string {
     case 'email_exists':
       return 'Un compte existe déjà avec cet email. Connectez-vous plutôt.';
     case 'weak_password':
-      return 'Mot de passe trop faible : choisissez-en un plus long ou plus varié.';
+      return `Mot de passe trop faible : au moins ${MIN_PASSWORD_LENGTH} caractères, et plus varié.`;
     case 'same_password':
       return "Le nouveau mot de passe doit être différent de l'ancien.";
     case 'over_request_rate_limit':
