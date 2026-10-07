@@ -40,7 +40,9 @@ Deploy the function by pasting `supabase/functions/chat/index.ts` into Edge Func
 Auth emails (password reset) are sent through Gmail SMTP from `astre.et.brume@gmail.com`
 (Authentication → Emails → SMTP Settings: host `smtp.gmail.com`, port 465, password = a Google
 "app password", which needs 2-Step Verification on that account). Supabase's built-in mailer only
-reaches project members, so custom SMTP is required for real users.
+reaches project members, so custom SMTP is required for real users. The "Reset Password" template
+(Authentication → Emails → Templates) is customised in the dashboard as a bilingual FR/EN email;
+keep `{{ .ConfirmationURL }}` in it.
 
 Authentication → URL Configuration: Site URL `https://astre-et-brume.pages.dev`; Redirect URLs
 `https://astre-et-brume.pages.dev/**` and `http://localhost:4200/**` (for local development).
