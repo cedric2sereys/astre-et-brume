@@ -79,11 +79,24 @@ export class SpeechService {
 
   constructor() {
     if (this.synth) {
-      // Edge can list the same voice twice: keep one of each.
-      const refresh = () =>
-        this.allVoices.set([...new Map(this.synth!.getVoices().map((v) => [v.voiceURI, v])).values()]);
+      const synth = this.synth;
+      // Edge can list the same voice twice: keep one of each. A voice problem must never
+      // break the page: at worst the browser's default voice is used.
+      const refresh = () => {
+        try {
+          this.allVoices.set([...new Map((synth.getVoices() ?? []).map((v) => [v.voiceURI, v])).values()]);
+        } catch (e) {
+          console.warn('Reading the voices failed', e);
+        }
+      };
       refresh();
-      this.synth.addEventListener('voiceschanged', refresh); // voices often load after the page
+      // Voices often load after the page. The on… property works in every browser, unlike
+      // addEventListener on older iPhone Safari.
+      try {
+        synth.onvoiceschanged = refresh;
+      } catch {
+        // no notification: the voices read above are used
+      }
     }
     effect(() => this.save(AUTO_READ_KEY, String(this.autoRead())));
     // A reply read in one language should not continue after switching to the other.

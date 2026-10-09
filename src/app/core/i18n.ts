@@ -61,6 +61,8 @@ const FR = {
   'auth.toSignin': 'Déjà un compte ? Se connecter',
   'auth.err.email': 'Veuillez saisir une adresse email valide.',
   'auth.err.password': 'Veuillez saisir votre mot de passe.',
+  'auth.err.open':
+    "Vous êtes connecté, mais l'atelier n'a pas pu s'ouvrir. Rechargez la page ; si cela se reproduit, essayez un autre navigateur.",
 
   // Password rule
   'pw.rule': '{n} caractères au minimum, avec des lettres et des chiffres',
@@ -260,6 +262,8 @@ const EN: Record<TKey, string> = {
   'auth.toSignin': 'Already have an account? Sign in',
   'auth.err.email': 'Please enter a valid email address.',
   'auth.err.password': 'Please enter your password.',
+  'auth.err.open':
+    "You are signed in, but the workshop could not open. Reload the page; if it happens again, try another browser.",
 
   'pw.rule': 'at least {n} characters, with letters and digits',
   'pw.tooShort': 'Your password must be at least {n} characters long.',

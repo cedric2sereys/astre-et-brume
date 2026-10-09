@@ -184,6 +184,12 @@ export class AuthPage {
 
     if (error) this.error.set(error);
     else if (mode === 'forgot') this.resetSent.set(true);
-    else this.router.navigateByUrl('/pseudo');
+    else {
+      // Signed in: a page that fails to open must not leave the user on this form with no word.
+      this.router.navigateByUrl('/pseudo').catch((e) => {
+        console.error('Opening the workshop failed', e);
+        this.error.set('auth.err.open');
+      });
+    }
   }
 }
