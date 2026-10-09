@@ -79,7 +79,9 @@ export class SpeechService {
 
   constructor() {
     if (this.synth) {
-      const refresh = () => this.allVoices.set(this.synth!.getVoices());
+      // Edge can list the same voice twice: keep one of each.
+      const refresh = () =>
+        this.allVoices.set([...new Map(this.synth!.getVoices().map((v) => [v.voiceURI, v])).values()]);
       refresh();
       this.synth.addEventListener('voiceschanged', refresh); // voices often load after the page
     }

@@ -171,6 +171,13 @@ const FR = {
   'account.titleFallback': 'Votre compte',
   'account.signedInAs': 'Connecté avec',
   'account.back': "← Retour à l'atelier",
+  'dictation.start': 'Dicter votre message',
+  'dictation.stop': 'Arrêter la dictée',
+  'dictation.err.denied':
+    "Le micro est bloqué. Autorisez-le pour ce site (icône à gauche de l'adresse), puis réessayez.",
+  'dictation.err.noMic': 'Aucun micro trouvé sur cet appareil.',
+  'dictation.err.unavailable':
+    "La dictée n'est pas disponible dans ce navigateur pour le moment. Essayez Microsoft Edge ou Google Chrome.",
   'account.voice.title': 'Voix de lecture',
   'account.voice.lead':
     "La voix qui lit les réponses de l'agent (bouton 🔊). Elle vient de votre navigateur : le choix est retenu sur cet appareil.",
@@ -352,6 +359,13 @@ const EN: Record<TKey, string> = {
   'account.titleFallback': 'Your account',
   'account.signedInAs': 'Signed in as',
   'account.back': '← Back to the workshop',
+  'dictation.start': 'Dictate your message',
+  'dictation.stop': 'Stop dictation',
+  'dictation.err.denied':
+    'The microphone is blocked. Allow it for this site (icon left of the address), then try again.',
+  'dictation.err.noMic': 'No microphone was found on this device.',
+  'dictation.err.unavailable':
+    'Dictation is not available in this browser right now. Try Microsoft Edge or Google Chrome.',
   'account.voice.title': 'Reading voice',
   'account.voice.lead':
     "The voice that reads the agent's replies (🔊 button). It comes from your browser: the choice is remembered on this device.",

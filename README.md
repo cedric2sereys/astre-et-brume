@@ -10,6 +10,7 @@ AI astrologer that reads their natal chart and personal daily horoscope.
 - **AI agent:** Google Gemini (free tier), called from the Supabase Edge Function `chat`
 - **Astrology data:** FreeAstroAPI (free tier, 80 requests/day) — natal chart + personal daily horoscope/transits, cached per user
 - **Geocoding:** OpenStreetMap Nominatim (birth place → latitude/longitude)
+- **Voice:** the browser's Web Speech API — replies read aloud (voice chosen on /compte) and 🎤 dictation; free, no key
 
 ## Run locally
 

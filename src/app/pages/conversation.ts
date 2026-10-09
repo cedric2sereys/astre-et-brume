@@ -7,6 +7,7 @@ import { Conversation, ConversationsService } from '../core/conversations.servic
 import { I18n, TKey } from '../core/i18n';
 import { MarkdownPipe } from '../core/markdown.pipe';
 import { SpeechService } from '../core/speech.service';
+import { DictationService } from '../core/dictation.service';
 
 interface Message {
   from: 'agent' | 'user';
@@ -127,6 +128,9 @@ const GREETING: Message = { from: 'agent', text: '', greeting: true };
       @if (error(); as error) {
         <p class="error" role="alert">{{ i18n.t(error) }}</p>
       }
+      @if (dictation.error(); as error) {
+        <p class="error" role="alert">{{ i18n.t(error) }}</p>
+      }
       <form class="composer" (ngSubmit)="send()">
         <textarea
           class="input"
@@ -136,7 +140,18 @@ const GREETING: Message = { from: 'agent', text: '', greeting: true };
           [(ngModel)]="draft"
           (keydown.enter)="onEnter($event)"
         ></textarea>
-        <button class="btn btn-gold" type="submit" [disabled]="!draft.trim() || busy()">
+        @if (dictation.supported) {
+          <button
+            class="mic"
+            type="button"
+            [class.on]="dictation.listening()"
+            [attr.aria-pressed]="dictation.listening()"
+            [attr.aria-label]="i18n.t(dictation.listening() ? 'dictation.stop' : 'dictation.start')"
+            [title]="i18n.t(dictation.listening() ? 'dictation.stop' : 'dictation.start')"
+            (click)="toggleDictation()"
+          >{{ dictation.listening() ? '■' : '🎤' }}</button>
+        }
+        <button class="btn btn-gold" type="submit" [disabled]="!draft().trim() || busy()">
           {{ i18n.t('chat.send') }}
         </button>
       </form>
@@ -253,6 +268,22 @@ const GREETING: Message = { from: 'agent', text: '', greeting: true };
       border-radius: 14px; padding: 0.7rem;
     }
     .composer .input { resize: none; border: none; background: transparent; box-shadow: none; }
+    .mic {
+      flex: none; align-self: center;
+      width: 44px; height: 44px;
+      display: grid; place-items: center;
+      background: transparent; border: 1px solid var(--gold-dim); border-radius: 50%;
+      font-size: 1.1rem; color: var(--gold-soft); cursor: pointer;
+      &:hover { background: rgba(193, 160, 94, 0.08); }
+      &.on {
+        color: #e39b8b; border-color: rgba(227, 155, 139, 0.7);
+        animation: pulse 1.4s infinite ease-in-out;
+      }
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(227, 155, 139, 0.35); }
+      50% { box-shadow: 0 0 0 7px rgba(227, 155, 139, 0); }
+    }
     .composer .btn { width: auto; flex: none; padding-inline: 1.5rem; }
 
     @media (max-width: 640px) {
@@ -274,6 +305,7 @@ export class ConversationPage {
   private readonly agent = inject(AgentService);
   private readonly end = viewChild<ElementRef<HTMLElement>>('end');
   protected readonly speech = inject(SpeechService);
+  protected readonly dictation = inject(DictationService);
 
   readonly chart = this.session.chart;
   readonly city = computed(() => this.chart()?.place.split(',')[0] ?? '');
@@ -290,7 +322,8 @@ export class ConversationPage {
   readonly panelOpen = signal(false);
   // The greeting always opens a conversation; it is not stored. Saved messages follow it.
   readonly messages = signal<Message[]>([GREETING]);
-  draft = '';
+  /** The message being written (a signal: dictation fills it from outside any template event). */
+  readonly draft = signal('');
 
   constructor() {
     effect(() => {
@@ -298,7 +331,10 @@ export class ConversationPage {
       this.waiting();
       queueMicrotask(() => this.end()?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'end' }));
     });
-    inject(DestroyRef).onDestroy(() => this.speech.stop());
+    inject(DestroyRef).onDestroy(() => {
+      this.speech.stop();
+      this.dictation.cancel();
+    });
     this.init();
   }
 
@@ -343,6 +379,17 @@ export class ConversationPage {
     this.messages.set([GREETING]);
   }
 
+  /** 🎤: what is said is added after what was already typed, live. */
+  toggleDictation(): void {
+    if (this.dictation.listening()) {
+      this.dictation.stop();
+      return;
+    }
+    this.speech.stop(); // otherwise the microphone would hear the reading voice
+    const before = this.draft().trim();
+    this.dictation.start((heard) => this.draft.set(before && heard ? `${before} ${heard}` : before || heard));
+  }
+
   /** Identifies a message for the read-aloud button (its place in the open conversation). */
   speechId(index: number): string {
     return `${this.currentId() ?? 'new'}:${index}`;
@@ -377,9 +424,10 @@ export class ConversationPage {
   }
 
   async send(): Promise<void> {
-    const text = this.draft.trim();
+    const text = this.draft().trim();
     if (!text || this.busy()) return;
-    this.draft = '';
+    this.dictation.cancel();
+    this.draft.set('');
     this.error.set(null);
     const before = this.messages().length; // to take everything back if the exchange fails
     this.messages.update((list) => [...list, { from: 'user', text }]);
@@ -421,7 +469,7 @@ export class ConversationPage {
       console.error('Agent call failed', e);
       // Nothing was saved: take the message (and any partial reply) back so it can be sent again.
       this.messages.update((list) => list.slice(0, before));
-      this.draft = text;
+      this.draft.set(text);
       this.error.set(e instanceof AgentError ? e.key : 'agent.generic');
     } finally {
       this.waiting.set(false);

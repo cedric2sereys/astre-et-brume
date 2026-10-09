@@ -13,23 +13,23 @@ Read README.md for the stack, setup and deployment. This file holds how we work 
   When `supabase/functions/chat/index.ts` changes, the owner must redeploy it in Supabase.
   New SQL in `supabase/migrations/` must be run by the owner in the Supabase SQL Editor.
 
-## Status (2026-10-07)
+## Status (2026-10-10)
 Live at https://astre-et-brume.pages.dev, everything working: login/sign-up, forgot password
 (bilingual email via Gmail SMTP), account deletion, nickname + birth data, Gemini agent with
 FreeAstroAPI natal chart + daily horoscope, streaming replies, Markdown, conversation list,
 FR | EN interface, 8-character passwords with letters and digits.
+Voice (browser Web Speech API, free, no keys): 🔊 on each reply + "Lecture auto" toggle
+(`core/speech.service.ts`); voice picker on /compte, natural voices first and Microsoft Vivienne
+as the automatic French choice; 🎤 dictation in the composer (`core/dictation.service.ts`),
+hidden in Firefox and Brave. Tested on PC Edge and Chrome (Chrome needed the right microphone in
+chrome://settings/content/microphone). Edge's "Natural" voices sound the most human.
 
 ## Next step (not started; confirm with the owner first)
-**Voice features with the browser Web Speech API** (free, unlimited, no keys, no server change):
-1. 🔊 button on each agent reply + "auto-read replies" toggle; strip Markdown before speaking.
-2. Voice picker on /compte, filtered by the FR/EN interface language, with a preview; saved in localStorage.
-3. 🎤 button in the chat composer with live transcription (SpeechRecognition); hidden where
-   unsupported (Firefox).
-4. FR/EN texts in `src/app/core/i18n.ts`.
-Estimate: ~4–5 h of work + ~20 min of owner testing (PC Edge/Chrome and phone).
-Not chosen: ElevenLabs (free ≈ 10 min/month for the whole app, non-commercial); Gradium (free ≈ 1 h/month,
-non-commercial) could come later as an optional premium voice. Real people's/celebrity voices are not
-allowed: only the provider's library voices.
+Test the voice features on a phone (iPhone Safari / Android Chrome). Then the owner decides whether
+to add hosted voices on top: Gradium free (≈ 1 h/month for the whole app) → ElevenLabs free
+(≈ 10 min/month) → browser voice as the last fallback, through a new Supabase Edge Function holding
+the keys, with a per-user daily cap. Both free plans are non-commercial; check their current terms
+(attribution…) first. Real people's/celebrity voices are not allowed: only the provider's library voices.
 
 ## Ideas set aside
 Own domain name, full mobile check, legal notice / privacy page, reset email in the user's
