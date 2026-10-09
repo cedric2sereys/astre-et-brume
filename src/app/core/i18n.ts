@@ -177,6 +177,8 @@ const FR = {
   'dictation.stop': 'Arrêter la dictée',
   'dictation.err.denied':
     "Le micro est bloqué. Autorisez-le pour ce site (icône à gauche de l'adresse), puis réessayez.",
+  'dictation.err.deniedIos':
+    "La dictée n'a pas pu démarrer. Sur iPhone, vérifiez Réglages → Général → Clavier → Activer la dictée ; avec Chrome, autorisez aussi Micro et Reconnaissance vocale dans Réglages → Chrome.",
   'dictation.err.noMic': 'Aucun micro trouvé sur cet appareil.',
   'dictation.err.unavailable':
     "La dictée n'est pas disponible dans ce navigateur pour le moment. Essayez Microsoft Edge ou Google Chrome.",
@@ -367,6 +369,8 @@ const EN: Record<TKey, string> = {
   'dictation.stop': 'Stop dictation',
   'dictation.err.denied':
     'The microphone is blocked. Allow it for this site (icon left of the address), then try again.',
+  'dictation.err.deniedIos':
+    'Dictation could not start. On iPhone, check Settings → General → Keyboard → Enable Dictation; with Chrome, also allow Microphone and Speech Recognition in Settings → Chrome.',
   'dictation.err.noMic': 'No microphone was found on this device.',
   'dictation.err.unavailable':
     'Dictation is not available in this browser right now. Try Microsoft Edge or Google Chrome.',

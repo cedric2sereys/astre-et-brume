@@ -32,8 +32,15 @@ const Ctor: RecognitionCtor | undefined =
     : ((window as unknown as Record<string, RecognitionCtor | undefined>)['SpeechRecognition'] ??
       (window as unknown as Record<string, RecognitionCtor | undefined>)['webkitSpeechRecognition']);
 
-/** Android Chrome repeats the words in continuous mode: there, each dictation is one phrase. */
-const ANDROID = typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent);
+const UA = typeof navigator === 'undefined' ? '' : navigator.userAgent;
+/** iPhone and iPad (iPadOS presents itself as a Mac with a touch screen). */
+const IOS =
+  /iPhone|iPad|iPod/.test(UA) || (/Macintosh/.test(UA) && typeof navigator !== 'undefined' && navigator.maxTouchPoints > 1);
+/**
+ * Continuous mode repeats words on Android and is unreliable on iPhone: there, each
+ * dictation is one phrase.
+ */
+const ONE_PHRASE = IOS || /android/i.test(UA);
 
 /**
  * Dictation with the browser's speech recognition (free, no key). The browser sends the
@@ -65,9 +72,13 @@ export class DictationService {
     this.error.set(null);
     const r = new Ctor();
     r.lang = this.i18n.locale;
-    r.continuous = !ANDROID;
+    r.continuous = !ONE_PHRASE;
     r.interimResults = true;
+    let heardSomething = false;
+    let failed = false;
+    const startedAt = Date.now();
     r.onresult = (e) => {
+      heardSomething = true;
       // Rebuilt from all the results each time: words still being recognised change as you speak.
       let text = '';
       for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript;
@@ -75,18 +86,24 @@ export class DictationService {
     };
     r.onerror = (e) => {
       if (e.error === 'no-speech' || e.error === 'aborted') return;
+      failed = true;
       this.error.set(
         e.error === 'not-allowed' || e.error === 'service-not-allowed'
-          ? 'dictation.err.denied'
+          ? IOS
+            ? 'dictation.err.deniedIos'
+            : 'dictation.err.denied'
           : e.error === 'audio-capture'
             ? 'dictation.err.noMic'
             : 'dictation.err.unavailable',
       );
     };
     r.onend = () => {
-      if (this.recognition === r) {
-        this.recognition = null;
-        this.listening.set(false);
+      if (this.recognition !== r) return; // stopped or cancelled on purpose
+      this.recognition = null;
+      this.listening.set(false);
+      // Safari stops at once, without any error, when the iPhone's dictation is switched off.
+      if (!heardSomething && !failed && Date.now() - startedAt < 1500) {
+        this.error.set(IOS ? 'dictation.err.deniedIos' : 'dictation.err.unavailable');
       }
     };
     this.recognition = r;
