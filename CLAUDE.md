@@ -21,11 +21,16 @@ FR | EN interface, 8-character passwords with letters and digits.
 Voice (browser Web Speech API, free, no keys): 🔊 on each reply + "Lecture auto" toggle
 (`core/speech.service.ts`); voice picker on /compte, natural voices first and Microsoft Vivienne
 as the automatic French choice; 🎤 dictation in the composer (`core/dictation.service.ts`),
-hidden in Firefox and Brave. Tested on PC Edge and Chrome (Chrome needed the right microphone in
-chrome://settings/content/microphone). Edge's "Natural" voices sound the most human.
+hidden in Firefox and Brave. Tested and working on PC Edge and Chrome (Chrome needed the right
+microphone in chrome://settings/content/microphone) and on iPhone Safari and Chrome. Edge's "Natural"
+voices sound the most human; iPhones only offer the voices installed on the phone (better ones can be
+downloaded in Settings → Accessibility → Spoken Content → Voices). On iPhone, dictation needs
+Settings → General → Keyboard → Enable Dictation (+ Microphone and Speech Recognition for Chrome):
+a step-by-step notice shows this when the 🎤 cannot start. Voice code must never block the app
+(an iPhone Safari crash in it once kept users on the login page).
 
 ## Next step (not started; confirm with the owner first)
-Test the voice features on a phone (iPhone Safari / Android Chrome). Then the owner decides whether
+Android phones are not tested yet. The owner will decide (planned for 2026-10-11) whether
 to add hosted voices on top: Gradium free (≈ 1 h/month for the whole app) → ElevenLabs free
 (≈ 10 min/month) → browser voice as the last fallback, through a new Supabase Edge Function holding
 the keys, with a per-user daily cap. Both free plans are non-commercial; check their current terms
