@@ -129,7 +129,10 @@ const GREETING: Message = { from: 'agent', text: '', greeting: true };
         <p class="error" role="alert">{{ i18n.t(error) }}</p>
       }
       @if (dictation.error(); as error) {
-        <p class="error" role="alert">{{ i18n.t(error) }}</p>
+        <div class="notice" role="alert">
+          <p>{{ i18n.t(error) }}</p>
+          <button type="button" [attr.aria-label]="i18n.t('dictation.close')" (click)="dictation.error.set(null)">✕</button>
+        </div>
       }
       <form class="composer" (ngSubmit)="send()">
         <textarea
@@ -261,6 +264,17 @@ const GREETING: Message = { from: 'agent', text: '', greeting: true };
     .dots span:nth-child(3) { animation-delay: 0.4s; }
     @keyframes blink { 0%, 80%, 100% { opacity: 0.2; } 40% { opacity: 1; } }
 
+    .notice {
+      display: flex; gap: 0.8rem; align-items: flex-start;
+      margin-bottom: 1rem; padding: 0.9rem 1.1rem;
+      border: 1px solid rgba(227, 155, 139, 0.5); border-radius: 12px;
+      background: rgba(227, 155, 139, 0.08);
+    }
+    .notice p { flex: 1; margin: 0; color: #e39b8b; line-height: 1.6; white-space: pre-line; }
+    .notice button {
+      flex: none; background: transparent; border: none; padding: 0.2rem;
+      color: #e39b8b; cursor: pointer;
+    }
     .composer {
       position: sticky; bottom: 1rem;
       display: flex; gap: 0.8rem; align-items: flex-end;

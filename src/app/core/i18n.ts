@@ -177,8 +177,22 @@ const FR = {
   'dictation.stop': 'Arrêter la dictée',
   'dictation.err.denied':
     "Le micro est bloqué. Autorisez-le pour ce site (icône à gauche de l'adresse), puis réessayez.",
-  'dictation.err.deniedIos':
-    "La dictée n'a pas pu démarrer. Sur iPhone, vérifiez Réglages → Général → Clavier → Activer la dictée ; avec Chrome, autorisez aussi Micro et Reconnaissance vocale dans Réglages → Chrome.",
+  'dictation.close': 'Fermer',
+  'dictation.err.iosSafari':
+    "La dictée n'a pas pu démarrer. Sur iPhone :\n" +
+    '1. Réglages → Général → Clavier → activez « Activer la dictée ».\n' +
+    '2. Si vous avez refusé le micro : Réglages → Apps → Safari → Micro → « Demander » ou « Autoriser ».\n' +
+    "Fermez ensuite l'onglet, rouvrez le site et touchez 🎤 à nouveau.",
+  'dictation.err.iosChrome':
+    "La dictée n'a pas pu démarrer. Sur iPhone :\n" +
+    '1. Réglages → Général → Clavier → activez « Activer la dictée ».\n' +
+    '2. Réglages → Apps → Chrome → activez « Micro » et « Reconnaissance vocale ».\n' +
+    "Fermez ensuite l'onglet, rouvrez le site et touchez 🎤 à nouveau.",
+  'dictation.err.iosOther':
+    "La dictée n'a pas pu démarrer. Sur iPhone :\n" +
+    '1. Réglages → Général → Clavier → activez « Activer la dictée ».\n' +
+    '2. Réglages → Apps → votre navigateur → activez « Micro » et « Reconnaissance vocale ».\n' +
+    "Fermez ensuite l'onglet, rouvrez le site et touchez 🎤 à nouveau.",
   'dictation.err.noMic': 'Aucun micro trouvé sur cet appareil.',
   'dictation.err.unavailable':
     "La dictée n'est pas disponible dans ce navigateur pour le moment. Essayez Microsoft Edge ou Google Chrome.",
@@ -369,8 +383,22 @@ const EN: Record<TKey, string> = {
   'dictation.stop': 'Stop dictation',
   'dictation.err.denied':
     'The microphone is blocked. Allow it for this site (icon left of the address), then try again.',
-  'dictation.err.deniedIos':
-    'Dictation could not start. On iPhone, check Settings → General → Keyboard → Enable Dictation; with Chrome, also allow Microphone and Speech Recognition in Settings → Chrome.',
+  'dictation.close': 'Close',
+  'dictation.err.iosSafari':
+    'Dictation could not start. On iPhone:\n' +
+    '1. Settings → General → Keyboard → turn on "Enable Dictation".\n' +
+    '2. If you refused the microphone: Settings → Apps → Safari → Microphone → "Ask" or "Allow".\n' +
+    'Then close the tab, reopen the site and tap 🎤 again.',
+  'dictation.err.iosChrome':
+    'Dictation could not start. On iPhone:\n' +
+    '1. Settings → General → Keyboard → turn on "Enable Dictation".\n' +
+    '2. Settings → Apps → Chrome → turn on "Microphone" and "Speech Recognition".\n' +
+    'Then close the tab, reopen the site and tap 🎤 again.',
+  'dictation.err.iosOther':
+    'Dictation could not start. On iPhone:\n' +
+    '1. Settings → General → Keyboard → turn on "Enable Dictation".\n' +
+    '2. Settings → Apps → your browser → turn on "Microphone" and "Speech Recognition".\n' +
+    'Then close the tab, reopen the site and tap 🎤 again.',
   'dictation.err.noMic': 'No microphone was found on this device.',
   'dictation.err.unavailable':
     'Dictation is not available in this browser right now. Try Microsoft Edge or Google Chrome.',

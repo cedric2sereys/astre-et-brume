@@ -42,6 +42,13 @@ const IOS =
  */
 const ONE_PHRASE = IOS || /android/i.test(UA);
 
+/** Step-by-step help for the iPhone browser in use (Chrome, Safari or another one). */
+const IOS_HELP: TKey = /CriOS/.test(UA)
+  ? 'dictation.err.iosChrome'
+  : /FxiOS|EdgiOS|OPiOS/.test(UA)
+    ? 'dictation.err.iosOther'
+    : 'dictation.err.iosSafari';
+
 /**
  * Dictation with the browser's speech recognition (free, no key). The browser sends the
  * audio to its own service (Google for Chrome, Microsoft for Edge), not to our server.
@@ -90,7 +97,7 @@ export class DictationService {
       this.error.set(
         e.error === 'not-allowed' || e.error === 'service-not-allowed'
           ? IOS
-            ? 'dictation.err.deniedIos'
+            ? IOS_HELP
             : 'dictation.err.denied'
           : e.error === 'audio-capture'
             ? 'dictation.err.noMic'
@@ -103,7 +110,7 @@ export class DictationService {
       this.listening.set(false);
       // Safari stops at once, without any error, when the iPhone's dictation is switched off.
       if (!heardSomething && !failed && Date.now() - startedAt < 1500) {
-        this.error.set(IOS ? 'dictation.err.deniedIos' : 'dictation.err.unavailable');
+        this.error.set(IOS ? IOS_HELP : 'dictation.err.unavailable');
       }
     };
     this.recognition = r;
