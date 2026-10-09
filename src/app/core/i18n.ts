@@ -147,6 +147,11 @@ const FR = {
   'chat.thinking': 'Je suis en train de consulter les astres, un tout petit peu de patience…',
   'chat.placeholder': 'Posez votre question aux astres…',
   'chat.send': 'Envoyer',
+  'chat.listen': 'Écouter la réponse',
+  'chat.stopListening': 'Arrêter la lecture',
+  'chat.autoRead': 'Lecture auto',
+  'chat.on': 'oui',
+  'chat.off': 'non',
   'chat.err.list': "Vos conversations n'ont pas pu être chargées.",
   'chat.err.load': "Cette conversation n'a pas pu être chargée.",
 
@@ -311,6 +316,11 @@ const EN: Record<TKey, string> = {
   'chat.thinking': "I'm consulting the stars, just a little patience…",
   'chat.placeholder': 'Ask the stars your question…',
   'chat.send': 'Send',
+  'chat.listen': 'Listen to the reply',
+  'chat.stopListening': 'Stop reading',
+  'chat.autoRead': 'Auto-read',
+  'chat.on': 'on',
+  'chat.off': 'off',
   'chat.err.list': 'Your conversations could not be loaded.',
   'chat.err.load': 'This conversation could not be loaded.',
 

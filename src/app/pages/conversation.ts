@@ -1,4 +1,4 @@
-import { Component, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
+import { Component, DestroyRef, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { SessionService } from '../core/session.service';
@@ -6,6 +6,7 @@ import { AgentError, AgentService } from '../core/agent.service';
 import { Conversation, ConversationsService } from '../core/conversations.service';
 import { I18n, TKey } from '../core/i18n';
 import { MarkdownPipe } from '../core/markdown.pipe';
+import { SpeechService } from '../core/speech.service';
 
 interface Message {
   from: 'agent' | 'user';
@@ -53,6 +54,17 @@ const GREETING: Message = { from: 'agent', text: '', greeting: true };
         >
           {{ i18n.t('chat.newConversation') }}
         </button>
+        @if (speech.supported) {
+          <button
+            class="pill"
+            type="button"
+            [class.on]="speech.autoRead()"
+            [attr.aria-pressed]="speech.autoRead()"
+            (click)="speech.autoRead.set(!speech.autoRead())"
+          >
+            🔊 {{ i18n.t('chat.autoRead') }} · {{ i18n.t(speech.autoRead() ? 'chat.on' : 'chat.off') }}
+          </button>
+        }
       </div>
 
       @if (panelOpen()) {
@@ -83,7 +95,20 @@ const GREETING: Message = { from: 'agent', text: '', greeting: true };
         @for (m of messages(); track $index) {
           @if (m.from === 'agent') {
             <div class="bubble agent">
-              <span class="eyebrow">{{ i18n.t('chat.agent') }}</span>
+              <div class="bubble-head">
+                <span class="eyebrow">{{ i18n.t('chat.agent') }}</span>
+                @if (speech.supported && !(busy() && $last)) {
+                  @let reading = speech.speakingId() === speechId($index);
+                  <button
+                    class="listen"
+                    type="button"
+                    [class.on]="reading"
+                    [attr.aria-label]="i18n.t(reading ? 'chat.stopListening' : 'chat.listen')"
+                    [title]="i18n.t(reading ? 'chat.stopListening' : 'chat.listen')"
+                    (click)="toggleListen($index, m)"
+                  >{{ reading ? '■' : '🔊' }}</button>
+                }
+              </div>
               <div class="md" [innerHTML]="(m.greeting ? i18n.t('chat.greeting') : m.text) | markdown"></div>
             </div>
           } @else {
@@ -188,7 +213,21 @@ const GREETING: Message = { from: 'agent', text: '', greeting: true };
       border: 1px solid var(--border);
       padding: 1.3rem 1.5rem;
     }
-    .agent .eyebrow { display: block; font-size: 0.72rem; margin-bottom: 0.6rem; }
+    .agent .eyebrow { display: block; font-size: 0.72rem; }
+    .bubble-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+      margin-bottom: 0.6rem;
+    }
+    .listen {
+      flex: none;
+      width: 34px; height: 34px; margin: -0.5rem -0.6rem -0.5rem 0;
+      display: grid; place-items: center;
+      background: transparent; border: 1px solid transparent; border-radius: 50%;
+      font-size: 1rem; color: var(--gold-soft); cursor: pointer;
+      &:hover { border-color: var(--gold-dim); }
+      &.on { border-color: var(--gold-dim); background: rgba(193, 160, 94, 0.12); }
+    }
+    .pill.on { background: rgba(193, 160, 94, 0.14); }
     .user {
       align-self: flex-end;
       background: var(--gold);
@@ -234,6 +273,7 @@ export class ConversationPage {
   private readonly store = inject(ConversationsService);
   private readonly agent = inject(AgentService);
   private readonly end = viewChild<ElementRef<HTMLElement>>('end');
+  protected readonly speech = inject(SpeechService);
 
   readonly chart = this.session.chart;
   readonly city = computed(() => this.chart()?.place.split(',')[0] ?? '');
@@ -258,6 +298,7 @@ export class ConversationPage {
       this.waiting();
       queueMicrotask(() => this.end()?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'end' }));
     });
+    inject(DestroyRef).onDestroy(() => this.speech.stop());
     this.init();
   }
 
@@ -275,6 +316,7 @@ export class ConversationPage {
 
   async open(id: string): Promise<void> {
     if (this.busy()) return;
+    this.speech.stop();
     this.currentId.set(id);
     this.panelOpen.set(false);
     this.error.set(null);
@@ -294,10 +336,22 @@ export class ConversationPage {
 
   startNew(): void {
     if (this.busy()) return;
+    this.speech.stop();
     this.currentId.set(null);
     this.panelOpen.set(false);
     this.error.set(null);
     this.messages.set([GREETING]);
+  }
+
+  /** Identifies a message for the read-aloud button (its place in the open conversation). */
+  speechId(index: number): string {
+    return `${this.currentId() ?? 'new'}:${index}`;
+  }
+
+  toggleListen(index: number, m: Message): void {
+    const id = this.speechId(index);
+    if (this.speech.speakingId() === id) this.speech.stop();
+    else this.speech.speak(id, m.greeting ? this.i18n.t('chat.greeting') : m.text);
   }
 
   formatDate(iso: string): string {
@@ -331,6 +385,8 @@ export class ConversationPage {
     this.messages.update((list) => [...list, { from: 'user', text }]);
     this.busy.set(true);
     this.waiting.set(true);
+    this.speech.stop();
+    this.speech.unlock();
 
     try {
       // The reply is shown as it is written. The server saves both messages once it is
@@ -357,6 +413,10 @@ export class ConversationPage {
         };
         return [updated, ...list.filter((c) => c.id !== result.conversationId)];
       });
+      if (this.speech.autoRead()) {
+        const last = this.messages().length - 1;
+        this.speech.speak(this.speechId(last), this.messages()[last].text);
+      }
     } catch (e) {
       console.error('Agent call failed', e);
       // Nothing was saved: take the message (and any partial reply) back so it can be sent again.
