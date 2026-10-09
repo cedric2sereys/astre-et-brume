@@ -1,8 +1,32 @@
-import { Injectable, effect, inject, signal } from '@angular/core';
-import { I18n } from './i18n';
+import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { I18n, Lang } from './i18n';
 import { markdownToText } from './markdown.pipe';
 
 const AUTO_READ_KEY = 'astre-et-brume.autoRead';
+const voiceKey = (lang: Lang) => `astre-et-brume.voice.${lang}`;
+
+/**
+ * Human-sounding voices: Edge's "Natural" (online) voices, Chrome's Google voices,
+ * Apple's "Enhanced"/"Premium" ones. The others are the robotic voices built into the system.
+ */
+export function isNaturalVoice(v: SpeechSynthesisVoice): boolean {
+  return /natural|online|google|enhanced|premium|neural/i.test(v.name);
+}
+
+/** Voices the owner found the most natural, chosen automatically when the browser has them. */
+const FAVOURITES = /vivienne/i;
+
+/** Higher is better: favourites, then natural voices, then the exact region (fr-FR, en-GB). */
+function score(v: SpeechSynthesisVoice, locale: string): number {
+  const name = v.name;
+  return (
+    (FAVOURITES.test(name) ? 16 : 0) +
+    (/natural|neural/i.test(name) ? 8 : 0) +
+    (isNaturalVoice(v) ? 4 : 0) +
+    (v.lang.replace('_', '-') === locale ? 2 : 0) +
+    (v.default ? 1 : 0)
+  );
+}
 
 /** Chrome stops long utterances after ~15 s, so replies are read as a queue of short pieces. */
 const MAX_PIECE = 220;
@@ -35,11 +59,27 @@ export class SpeechService {
   /** Read each new reply aloud as soon as it is complete (remembered on this device). */
   readonly autoRead = signal(this.load(AUTO_READ_KEY) === 'true');
 
-  private voices: SpeechSynthesisVoice[] = [];
+  private readonly allVoices = signal<SpeechSynthesisVoice[]>([]);
+  /** The voices chosen on /compte (voiceURI), per interface language; '' = automatic. */
+  private readonly chosen = signal<Record<Lang, string>>({
+    fr: this.load(voiceKey('fr')) ?? '',
+    en: this.load(voiceKey('en')) ?? '',
+  });
+
+  /** Voices for the interface language, best first. */
+  readonly voices = computed(() => {
+    const locale = this.i18n.locale;
+    const lang = this.i18n.lang();
+    return this.allVoices()
+      .filter((v) => v.lang.toLowerCase().startsWith(lang))
+      .sort((a, b) => score(b, locale) - score(a, locale) || a.name.localeCompare(b.name));
+  });
+  /** The chosen voice for the interface language ('' = automatic, the best one available). */
+  readonly voiceURI = computed(() => this.chosen()[this.i18n.lang()]);
 
   constructor() {
     if (this.synth) {
-      const refresh = () => (this.voices = this.synth!.getVoices());
+      const refresh = () => this.allVoices.set(this.synth!.getVoices());
       refresh();
       this.synth.addEventListener('voiceschanged', refresh); // voices often load after the page
     }
@@ -58,7 +98,7 @@ export class SpeechService {
     const pieces = splitForSpeech(markdownToText(markdown));
     if (!pieces.length) return;
     const lang = this.i18n.locale;
-    const voice = this.voiceFor(lang);
+    const voice = this.currentVoice();
     this.speakingId.set(id);
     pieces.forEach((piece, i) => {
       const u = new SpeechSynthesisUtterance(piece);
@@ -89,15 +129,17 @@ export class SpeechService {
     this.synth.speak(u);
   }
 
-  /** A voice for the interface language: the browser's default one if it fits, else the first. */
-  private voiceFor(locale: string): SpeechSynthesisVoice | undefined {
-    const lang = locale.slice(0, 2);
-    const matching = this.voices.filter((v) => v.lang.toLowerCase().startsWith(lang));
-    return (
-      matching.find((v) => v.default) ??
-      matching.find((v) => v.lang.replace('_', '-') === locale) ??
-      matching[0]
-    );
+  /** Chooses the voice for the interface language ('' = automatic); remembered on this device. */
+  setVoice(uri: string): void {
+    const lang = this.i18n.lang();
+    this.chosen.update((c) => ({ ...c, [lang]: uri }));
+    this.save(voiceKey(lang), uri);
+  }
+
+  /** The chosen voice if this browser still has it, otherwise the best one available. */
+  currentVoice(): SpeechSynthesisVoice | undefined {
+    const voices = this.voices();
+    return voices.find((v) => v.voiceURI === this.voiceURI()) ?? voices[0];
   }
 
   private load(key: string): string | null {

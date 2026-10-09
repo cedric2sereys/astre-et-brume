@@ -171,6 +171,21 @@ const FR = {
   'account.titleFallback': 'Votre compte',
   'account.signedInAs': 'Connecté avec',
   'account.back': "← Retour à l'atelier",
+  'account.voice.title': 'Voix de lecture',
+  'account.voice.lead':
+    "La voix qui lit les réponses de l'agent (bouton 🔊). Elle vient de votre navigateur : le choix est retenu sur cet appareil.",
+  'account.voice.label': 'Voix',
+  'account.voice.pick':
+    'Cliquez sur la liste pour découvrir toutes les voix et choisir votre préférée : chacune fait entendre un exemple.',
+  'account.voice.auto': 'Automatique ({name})',
+  'account.voice.natural': 'Voix naturelles',
+  'account.voice.others': 'Autres voix',
+  'account.voice.preview': '▶ Écouter',
+  'account.voice.stop': '■ Arrêter',
+  'account.voice.sample':
+    'Bonsoir, je suis votre astrologue. Les étoiles ont beaucoup à vous dire aujourd’hui.',
+  'account.voice.hint':
+    'Pour des voix plus naturelles, essayez Microsoft Edge (voix « Natural ») ou Google Chrome.',
   'account.delete.title': 'Supprimer mon compte',
   'account.delete.before': 'Cette action est',
   'account.delete.strong': 'définitive',
@@ -337,6 +352,19 @@ const EN: Record<TKey, string> = {
   'account.titleFallback': 'Your account',
   'account.signedInAs': 'Signed in as',
   'account.back': '← Back to the workshop',
+  'account.voice.title': 'Reading voice',
+  'account.voice.lead':
+    "The voice that reads the agent's replies (🔊 button). It comes from your browser: the choice is remembered on this device.",
+  'account.voice.label': 'Voice',
+  'account.voice.pick':
+    'Click the list to discover all the voices and pick your favourite: each one plays a short sample.',
+  'account.voice.auto': 'Automatic ({name})',
+  'account.voice.natural': 'Natural voices',
+  'account.voice.others': 'Other voices',
+  'account.voice.preview': '▶ Listen',
+  'account.voice.stop': '■ Stop',
+  'account.voice.sample': 'Good evening, I am your astrologer. The stars have a lot to tell you today.',
+  'account.voice.hint': 'For more natural voices, try Microsoft Edge ("Natural" voices) or Google Chrome.',
   'account.delete.title': 'Delete my account',
   'account.delete.before': 'This action is',
   'account.delete.strong': 'permanent',
