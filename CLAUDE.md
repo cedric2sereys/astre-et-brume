@@ -36,9 +36,12 @@ Gradium first, then ElevenLabs, then the browser voice when both refuse (caps) o
 - Gradium: set up, tested and working. Automatic choice (FR Noémie, EN Tilly); caps 4000 chars per
   user per day, 42000 per month (free plan 45000). Free plan: API yes, commercial no, no attribution,
   2 readings at once. Key "astre-et-brume" expires 2037-12-31. A short first piece makes readings start sooner.
-- ElevenLabs: written, waiting for the owner's key (`ELEVENLABS_API_KEY`), redeploy of `voice` and test.
-  Flash model ≈ 20,000 free chars/month; caps 1500 per user per day, 18000 per month; default voice
-  "Sarah"; "Voix : elevenlabs.io" credit next to each reply it read (required by the free plan).
+- ElevenLabs: set up and tested (key `ELEVENLABS_API_KEY`). Flash model ≈ 20,000 free chars/month;
+  caps 1500 per user per day, 18000 per month; "Voix : elevenlabs.io" credit next to each reply it
+  read (required by the free plan). Free plan cannot use library voices through the API: English uses
+  the default voice "Sarah"; French uses a voice the owner made with Voice Design ("Warm, calm French
+  woman astrologer", id 879ywO262DJwTNa6UfeH, secret `ELEVENLABS_VOICE_FR`), as Sarah sounded Canadian.
+  Test ElevenLabs by setting secret `GRADIUM_DAILY_CHARS` to 1 for a moment.
 Dictation stays on the browser (owner's choice: Gradium STT would share the same free credits).
 Real people's/celebrity voices are not allowed: only the provider's library voices.
 Android phones are not tested yet.
