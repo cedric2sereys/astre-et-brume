@@ -198,13 +198,20 @@ const FR = {
     "La dictée n'est pas disponible dans ce navigateur pour le moment. Essayez Microsoft Edge ou Google Chrome.",
   'account.voice.title': 'Voix de lecture',
   'account.voice.lead':
-    "La voix qui lit les réponses de l'agent (bouton 🔊). Elle vient de votre navigateur : le choix est retenu sur cet appareil.",
+    "La voix qui lit les réponses de l'agent (bouton 🔊). Les voix Gradium sont les plus naturelles, avec une limite quotidienne ; au-delà, la voix de votre navigateur prend le relais. Le choix est retenu sur cet appareil.",
   'account.voice.label': 'Voix',
   'account.voice.pick':
     'Cliquez sur la liste pour découvrir toutes les voix et choisir votre préférée : chacune fait entendre un exemple.',
   'account.voice.auto': 'Automatique ({name})',
-  'account.voice.natural': 'Voix naturelles',
-  'account.voice.others': 'Autres voix',
+  'account.voice.gradium': 'Voix Gradium (les plus naturelles)',
+  'account.voice.state.daily':
+    "Limite quotidienne des voix Gradium atteinte : la voix du navigateur lit les réponses jusqu'à demain.",
+  'account.voice.state.monthly':
+    'Le quota mensuel gratuit des voix Gradium est épuisé : la voix du navigateur lit les réponses ce mois-ci.',
+  'account.voice.state.off':
+    'Les voix Gradium ne sont pas disponibles pour le moment : la voix du navigateur lit les réponses.',
+  'account.voice.natural': 'Voix naturelles du navigateur',
+  'account.voice.others': 'Autres voix du navigateur',
   'account.voice.preview': '▶ Écouter',
   'account.voice.stop': '■ Arrêter',
   'account.voice.sample':
@@ -404,13 +411,19 @@ const EN: Record<TKey, string> = {
     'Dictation is not available in this browser right now. Try Microsoft Edge or Google Chrome.',
   'account.voice.title': 'Reading voice',
   'account.voice.lead':
-    "The voice that reads the agent's replies (🔊 button). It comes from your browser: the choice is remembered on this device.",
+    "The voice that reads the agent's replies (🔊 button). Gradium voices sound the most natural, within a daily limit; beyond it, your browser's voice takes over. The choice is remembered on this device.",
   'account.voice.label': 'Voice',
   'account.voice.pick':
     'Click the list to discover all the voices and pick your favourite: each one plays a short sample.',
   'account.voice.auto': 'Automatic ({name})',
-  'account.voice.natural': 'Natural voices',
-  'account.voice.others': 'Other voices',
+  'account.voice.gradium': 'Gradium voices (the most natural)',
+  'account.voice.state.daily':
+    "Gradium voices' daily limit reached: your browser's voice reads the replies until tomorrow.",
+  'account.voice.state.monthly':
+    "Gradium voices' free monthly allowance is used up: your browser's voice reads the replies this month.",
+  'account.voice.state.off': "Gradium voices are not available right now: your browser's voice reads the replies.",
+  'account.voice.natural': 'Natural browser voices',
+  'account.voice.others': 'Other browser voices',
   'account.voice.preview': '▶ Listen',
   'account.voice.stop': '■ Stop',
   'account.voice.sample': 'Good evening, I am your astrologer. The stars have a lot to tell you today.',

@@ -29,12 +29,16 @@ Settings → General → Keyboard → Enable Dictation (+ Microphone and Speech 
 a step-by-step notice shows this when the 🎤 cannot start. Voice code must never block the app
 (an iPhone Safari crash in it once kept users on the login page).
 
-## Next step (not started; confirm with the owner first)
-Android phones are not tested yet. The owner will decide (planned for 2026-10-11) whether
-to add hosted voices on top: Gradium free (≈ 1 h/month for the whole app) → ElevenLabs free
-(≈ 10 min/month) → browser voice as the last fallback, through a new Supabase Edge Function holding
-the keys, with a per-user daily cap. Both free plans are non-commercial; check their current terms
-(attribution…) first. Real people's/celebrity voices are not allowed: only the provider's library voices.
+## In progress (2026-10-10): hosted voices
+The owner confirmed the app is free and non-commercial (both free plans require that).
+Gradium step written, waiting for the owner's setup and test: Edge Function `voice`
+(`supabase/functions/voice/index.ts`), migration `005_voice_usage.sql`, secret `GRADIUM_API_KEY`.
+Gradium voices are the automatic choice (FR Noémie, EN Tilly); the browser voice takes over when
+the per-user daily cap (4000 chars) or the app's monthly budget (42000 of Gradium's free 45000) is
+reached or Gradium fails. Gradium free: API yes, commercial no, no attribution, 2 readings at once.
+Next: ElevenLabs free (≈ 10 min/month, non-commercial, must credit "elevenlabs.io" in the app)
+between Gradium and the browser voice. Real people's/celebrity voices are not allowed: only the
+provider's library voices. Android phones are not tested yet.
 
 ## Ideas set aside
 Own domain name, full mobile check, legal notice / privacy page, reset email in the user's

@@ -1,6 +1,8 @@
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { environment } from '../../environments/environment';
 import { I18n, Lang } from './i18n';
 import { markdownToText } from './markdown.pipe';
+import { supabase } from './supabase';
 
 const AUTO_READ_KEY = 'astre-et-brume.autoRead';
 const voiceKey = (lang: Lang) => `astre-et-brume.voice.${lang}`;
@@ -28,45 +30,101 @@ function score(v: SpeechSynthesisVoice, locale: string): number {
   );
 }
 
+/**
+ * Gradium's library voices (docs.gradium.ai → Flagship voices), read through our "voice" Edge
+ * Function. The first of each language is the automatic choice.
+ */
+export interface HostedVoice {
+  id: string;
+  name: string;
+}
+export const GRADIUM_VOICES: Record<Lang, HostedVoice[]> = {
+  fr: [
+    { id: 'FXxJ9mANRq6BCTX5', name: 'Noémie' },
+    { id: 'iEu63s1rhn_kegTr', name: 'Gaspard' },
+    { id: 'ZeSg853xFACESHHI', name: 'Coralie' },
+    { id: 'YhIHaAfQ0cQPDV9R', name: 'Solène' },
+    { id: 's048cR1l2Jmu4k3B', name: 'Maëlys' },
+    { id: '6oIkS98REoVZ1dEw', name: 'Apolline' },
+    { id: 'Tek4tJXiX6_yvXq7', name: 'Augustin' },
+    { id: 'YKeBw3OV1RgpdhLh', name: 'Jules' },
+    { id: 'biuhvu17TxVKOcyy', name: 'Marius' },
+    { id: '25AzBFyp6svYnJsj', name: 'Damien' },
+  ],
+  en: [
+    { id: '4rdlkbxRv4m3UQTW', name: 'Tilly' },
+    { id: 'POBHtemksfWQbng0', name: 'Garrett' },
+    { id: '6PWnV0Nq4wu7RVBT', name: 'Maeve' },
+    { id: 'GgfEkEJtxZR7gnpy', name: 'Freya' },
+    { id: '4SZHfMpw-p46Ywgs', name: 'Harper' },
+    { id: 'YVzbrdWnnu9FgRn5', name: 'Sunnie' },
+    { id: 'dME3IWyZBvmh1n1q', name: 'Toby' },
+    { id: 's_k3kLBbgeK9-xUg', name: 'Freddie' },
+    { id: 'kfzLbcdE_yXgLeUI', name: 'Archie' },
+    { id: '6MFfc37kq0sBjBjy', name: 'Sterling' },
+  ],
+};
+/** Hosted voices are stored as "gradium:<id>" next to the browser voices' voiceURI. */
+const GRADIUM_PREFIX = 'gradium:';
+
 /** Chrome stops long utterances after ~15 s, so replies are read as a queue of short pieces. */
 const MAX_PIECE = 220;
+/** Hosted voices get bigger pieces (fewer requests); the "voice" function accepts up to 600. */
+const MAX_HOSTED_PIECE = 450;
 
-function splitForSpeech(text: string): string[] {
+function splitForSpeech(text: string, max = MAX_PIECE): string[] {
   const pieces: string[] = [];
   for (const sentence of text.match(/[^.!?…\n]+[.!?…]*\s*/g) ?? []) {
-    const s = sentence.trim();
-    if (!s) continue;
-    const last = pieces.length - 1;
-    if (last >= 0 && pieces[last].length + s.length < MAX_PIECE) pieces[last] += ' ' + s;
-    else pieces.push(s);
+    // A very long sentence is cut between words so it still fits.
+    for (const s of sentence.trim().match(new RegExp(`.{1,${max}}(\\s|$)`, 'g')) ?? []) {
+      const part = s.trim();
+      if (!part) continue;
+      const last = pieces.length - 1;
+      if (last >= 0 && pieces[last].length + part.length < max) pieces[last] += ' ' + part;
+      else pieces.push(part);
+    }
   }
   return pieces;
 }
 
+/** Why hosted voices are not used right now (shown on /compte), or null when they work. */
+export type HostedState = null | 'daily' | 'monthly' | 'off';
+
+const CACHE_SIZE = 40;
+
 /**
- * Reads the agent's replies aloud with the browser's built-in voices (Web Speech API:
- * free, no key, nothing sent to our server). Hidden where the browser has no speech synthesis.
+ * Reads the agent's replies aloud. With a Gradium voice (the default), each piece of the reply is
+ * turned into audio by our "voice" Edge Function within a free allowance; when that is refused or
+ * fails, the browser's built-in voices (Web Speech API: free, no key) take over. Voice code must
+ * never break the app: every failure ends in the browser voice or in silence.
  */
 @Injectable({ providedIn: 'root' })
 export class SpeechService {
   private readonly i18n = inject(I18n);
   private readonly synth: SpeechSynthesis | null =
     typeof window !== 'undefined' && 'speechSynthesis' in window ? window.speechSynthesis : null;
+  private readonly audio: HTMLAudioElement | null = createAudio();
+  /** A short silence, played during a tap so phones then allow the reply's audio to start later. */
+  private silence: string | null = null;
+  /** Opus is much smaller; Safari before iOS 18.4 cannot play it, so it gets WAV. */
+  private readonly format = canPlayOpus(this.audio) ? 'opus' : 'wav';
 
-  readonly supported = this.synth !== null;
+  readonly supported = this.synth !== null || this.audio !== null;
   /** Id of the message being read, or null. */
   readonly speakingId = signal<string | null>(null);
   /** Read each new reply aloud as soon as it is complete (remembered on this device). */
   readonly autoRead = signal(this.load(AUTO_READ_KEY) === 'true');
+  /** Set when hosted voices were refused (daily cap, monthly budget) or are not set up. */
+  readonly hostedState = signal<HostedState>(null);
 
   private readonly allVoices = signal<SpeechSynthesisVoice[]>([]);
-  /** The voices chosen on /compte (voiceURI), per interface language; '' = automatic. */
+  /** The voices chosen on /compte, per interface language: '' = automatic, "gradium:<id>" or a voiceURI. */
   private readonly chosen = signal<Record<Lang, string>>({
     fr: this.load(voiceKey('fr')) ?? '',
     en: this.load(voiceKey('en')) ?? '',
   });
 
-  /** Voices for the interface language, best first. */
+  /** Browser voices for the interface language, best first. */
   readonly voices = computed(() => {
     const locale = this.i18n.locale;
     const lang = this.i18n.lang();
@@ -74,8 +132,25 @@ export class SpeechService {
       .filter((v) => v.lang.toLowerCase().startsWith(lang))
       .sort((a, b) => score(b, locale) - score(a, locale) || a.name.localeCompare(b.name));
   });
-  /** The chosen voice for the interface language ('' = automatic, the best one available). */
+  /** Gradium voices for the interface language (the first one is the automatic choice). */
+  readonly hostedVoices = computed(() => (this.audio ? GRADIUM_VOICES[this.i18n.lang()] : []));
+  /** The chosen voice for the interface language ('' = automatic). */
   readonly voiceURI = computed(() => this.chosen()[this.i18n.lang()]);
+  /** The Gradium voice to use, or null when a browser voice was chosen. */
+  readonly hostedVoice = computed<HostedVoice | null>(() => {
+    const uri = this.voiceURI();
+    const voices = this.hostedVoices();
+    if (!uri) return voices[0] ?? null;
+    if (!uri.startsWith(GRADIUM_PREFIX)) return null;
+    return voices.find((v) => v.id === uri.slice(GRADIUM_PREFIX.length)) ?? voices[0] ?? null;
+  });
+
+  /** Changes on every speak/stop, so a reading that was replaced stops quietly. */
+  private run = 0;
+  /** Ends the piece being played (resolves its promise) when the reading is stopped. */
+  private endPiece: (() => void) | null = null;
+  /** Audio already received this visit (voice + text → object URL), so replaying costs nothing. */
+  private readonly cache = new Map<string, string>();
 
   constructor() {
     if (this.synth) {
@@ -108,10 +183,72 @@ export class SpeechService {
 
   /** Reads a reply (Markdown) aloud, stopping whatever was being read. */
   speak(id: string, markdown: string): void {
-    if (!this.synth) return;
     this.stop();
-    const pieces = splitForSpeech(markdownToText(markdown));
-    if (!pieces.length) return;
+    const text = markdownToText(markdown);
+    const hosted = this.hostedState() ? null : this.hostedVoice();
+    if (hosted && this.audio) {
+      const pieces = splitForSpeech(text, MAX_HOSTED_PIECE);
+      if (!pieces.length) return;
+      // speak() runs during a tap: unlock both players now, the audio arrives later.
+      this.primeAudio();
+      this.primeSynth();
+      this.speakingId.set(id);
+      void this.speakHosted(id, pieces, hosted, this.run).catch((e) => {
+        console.warn('Hosted voice failed', e);
+        if (this.speakingId() === id) this.speakingId.set(null);
+      });
+    } else {
+      this.speakBrowser(id, splitForSpeech(text));
+    }
+  }
+
+  stop(): void {
+    this.run++;
+    this.speakingId.set(null);
+    try {
+      this.audio?.pause();
+      this.endPiece?.();
+      this.synth?.cancel();
+    } catch {
+      // nothing playing
+    }
+  }
+
+  /**
+   * Phones only allow speech that starts from a tap. Calling this during the tap on "Send"
+   * lets the reply be read automatically once it arrives.
+   */
+  unlock(): void {
+    if (!this.autoRead()) return;
+    if (this.hostedVoice()) this.primeAudio();
+    this.primeSynth();
+  }
+
+  /** Chooses the voice for the interface language ('' = automatic); remembered on this device. */
+  setVoice(uri: string): void {
+    const lang = this.i18n.lang();
+    this.chosen.update((c) => ({ ...c, [lang]: uri }));
+    this.save(voiceKey(lang), uri);
+  }
+
+  /** The value stored for a Gradium voice in the voice list. */
+  hostedValue(v: HostedVoice): string {
+    return GRADIUM_PREFIX + v.id;
+  }
+
+  /** The chosen browser voice if this browser still has it, otherwise the best one available. */
+  currentVoice(): SpeechSynthesisVoice | undefined {
+    const voices = this.voices();
+    return voices.find((v) => v.voiceURI === this.voiceURI()) ?? voices[0];
+  }
+
+  // --- Browser voice -------------------------------------------------------------
+
+  private speakBrowser(id: string, pieces: string[]): void {
+    if (!this.synth || !pieces.length) {
+      if (this.speakingId() === id) this.speakingId.set(null);
+      return;
+    }
     const lang = this.i18n.locale;
     const voice = this.currentVoice();
     this.speakingId.set(id);
@@ -127,35 +264,117 @@ export class SpeechService {
     });
   }
 
-  stop(): void {
-    if (!this.synth) return;
-    this.speakingId.set(null);
-    this.synth.cancel();
+  private primeSynth(): void {
+    if (!this.synth || this.synth.speaking) return;
+    try {
+      const u = new SpeechSynthesisUtterance(' ');
+      u.volume = 0;
+      this.synth.speak(u);
+    } catch {
+      // not needed on this browser
+    }
   }
 
-  /**
-   * Phones only allow speech that starts from a tap. Calling this during the tap on "Send"
-   * lets the reply be read automatically once it arrives.
-   */
-  unlock(): void {
-    if (!this.synth || !this.autoRead() || this.synth.speaking) return;
-    const u = new SpeechSynthesisUtterance(' ');
-    u.volume = 0;
-    this.synth.speak(u);
+  // --- Hosted voice (Gradium) -----------------------------------------------------
+
+  /** Plays the pieces one after the other, fetching the next while the current one plays. */
+  private async speakHosted(id: string, pieces: string[], voice: HostedVoice, run: number): Promise<void> {
+    const loads: Promise<string | null>[] = [];
+    const load = (i: number) => (loads[i] ??= this.fetchPiece(pieces[i], voice));
+    for (let i = 0; i < pieces.length; i++) {
+      const url = await load(i);
+      if (run !== this.run) return;
+      if (!url) {
+        // Refused or failed: the browser voice reads the rest of the reply.
+        this.speakBrowser(id, splitForSpeech(pieces.slice(i).join(' ')));
+        return;
+      }
+      if (i + 1 < pieces.length) void load(i + 1);
+      const played = await this.play(url);
+      if (run !== this.run) return;
+      if (!played) {
+        this.speakBrowser(id, splitForSpeech(pieces.slice(i).join(' ')));
+        return;
+      }
+    }
+    if (this.speakingId() === id) this.speakingId.set(null);
   }
 
-  /** Chooses the voice for the interface language ('' = automatic); remembered on this device. */
-  setVoice(uri: string): void {
-    const lang = this.i18n.lang();
-    this.chosen.update((c) => ({ ...c, [lang]: uri }));
-    this.save(voiceKey(lang), uri);
+  /** The audio of one piece as an object URL, or null if hosted voices cannot read it. */
+  private async fetchPiece(text: string, voice: HostedVoice, retry = true): Promise<string | null> {
+    const key = `${voice.id}|${this.format}|${text}`;
+    const cached = this.cache.get(key);
+    if (cached) return cached;
+    if (this.hostedState()) return null;
+
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) return null;
+    let res: Response;
+    try {
+      res = await fetch(`${environment.supabaseUrl}/functions/v1/voice`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          apikey: environment.supabasePublishableKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text, voice_id: voice.id, format: this.format }),
+      });
+    } catch {
+      return null; // network down
+    }
+    if (!res.ok) {
+      const error = (await res.json().catch(() => ({})))?.error;
+      if (error === 'quota_daily') this.hostedState.set('daily');
+      else if (error === 'quota_monthly') this.hostedState.set('monthly');
+      else if (error === 'not_configured' || res.status === 404) this.hostedState.set('off');
+      else if (error === 'busy' && retry) {
+        // Gradium's free plan reads only 2 pieces at once for the whole app: wait a moment.
+        await new Promise((r) => setTimeout(r, 1200));
+        return this.fetchPiece(text, voice, false);
+      }
+      return null;
+    }
+    const url = URL.createObjectURL(await res.blob());
+    this.cache.set(key, url);
+    if (this.cache.size > CACHE_SIZE) {
+      const [oldKey, oldUrl] = this.cache.entries().next().value!;
+      this.cache.delete(oldKey);
+      URL.revokeObjectURL(oldUrl);
+    }
+    return url;
   }
 
-  /** The chosen voice if this browser still has it, otherwise the best one available. */
-  currentVoice(): SpeechSynthesisVoice | undefined {
-    const voices = this.voices();
-    return voices.find((v) => v.voiceURI === this.voiceURI()) ?? voices[0];
+  /** Plays one piece; true when it played to the end (or was stopped), false if it failed. */
+  private play(url: string): Promise<boolean> {
+    const audio = this.audio!;
+    return new Promise((resolve) => {
+      const done = (ok: boolean) => {
+        audio.onended = audio.onerror = null;
+        this.endPiece = null;
+        resolve(ok);
+      };
+      this.endPiece = () => done(true);
+      audio.onended = () => done(true);
+      audio.onerror = () => done(false);
+      audio.src = url;
+      audio.play().catch(() => done(false));
+    });
   }
+
+  private primeAudio(): void {
+    const audio = this.audio;
+    if (!audio) return;
+    try {
+      audio.src = this.silence ??= URL.createObjectURL(silentWav());
+      audio.play().catch(() => undefined);
+    } catch {
+      // not needed on this browser
+    }
+  }
+
+  // --- Remembered choices -------------------------------------------------------------
 
   private load(key: string): string | null {
     try {
@@ -171,5 +390,41 @@ export class SpeechService {
     } catch {
       // not remembered on this device; the choice still applies for this visit
     }
+  }
+}
+
+function createAudio(): HTMLAudioElement | null {
+  try {
+    return typeof Audio !== 'undefined' ? new Audio() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 0.1 s of silence as a WAV file (8 kHz, 16-bit, mono). */
+function silentWav(): Blob {
+  const samples = 800;
+  const view = new DataView(new ArrayBuffer(44 + samples * 2));
+  const ascii = (offset: number, s: string) => [...s].forEach((c, i) => view.setUint8(offset + i, c.charCodeAt(0)));
+  ascii(0, 'RIFF');
+  view.setUint32(4, 36 + samples * 2, true);
+  ascii(8, 'WAVEfmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, 8000, true);
+  view.setUint32(28, 16000, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  ascii(36, 'data');
+  view.setUint32(40, samples * 2, true);
+  return new Blob([view.buffer], { type: 'audio/wav' });
+}
+
+function canPlayOpus(audio: HTMLAudioElement | null): boolean {
+  try {
+    return !!audio?.canPlayType('audio/ogg; codecs="opus"');
+  } catch {
+    return false;
   }
 }

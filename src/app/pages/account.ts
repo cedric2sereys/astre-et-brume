@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { I18n, TKey } from '../core/i18n';
 import { SessionService } from '../core/session.service';
-import { SpeechService, isNaturalVoice } from '../core/speech.service';
+import { HostedState, SpeechService, isNaturalVoice } from '../core/speech.service';
 
 @Component({
   selector: 'app-account-page',
@@ -26,6 +26,13 @@ import { SpeechService, isNaturalVoice } from '../core/speech.service';
               <span class="pick-hint">{{ i18n.t('account.voice.pick') }}</span>
               <select class="input" name="voice" [ngModel]="speech.voiceURI()" (ngModelChange)="choose($event)">
                 <option value="">{{ i18n.t('account.voice.auto', { name: bestName() }) }}</option>
+                @if (speech.hostedVoices().length) {
+                  <optgroup [label]="i18n.t('account.voice.gradium')">
+                    @for (v of speech.hostedVoices(); track v.id) {
+                      <option [value]="speech.hostedValue(v)">{{ v.name }}</option>
+                    }
+                  </optgroup>
+                }
                 @if (natural().length) {
                   <optgroup [label]="i18n.t('account.voice.natural')">
                     @for (v of natural(); track v.voiceURI) {
@@ -46,7 +53,10 @@ import { SpeechService, isNaturalVoice } from '../core/speech.service';
               {{ i18n.t(previewing() ? 'account.voice.stop' : 'account.voice.preview') }}
             </button>
           </div>
-          @if (!natural().length) {
+          @if (speech.hostedVoice() && speech.hostedState(); as state) {
+            <p class="hint">{{ i18n.t(stateKeys[state]) }}</p>
+          }
+          @if (!speech.hostedVoice() && !natural().length) {
             <p class="hint">{{ i18n.t('account.voice.hint') }}</p>
           }
         </div>
@@ -113,7 +123,14 @@ export class AccountPage {
 
   readonly natural = computed(() => this.speech.voices().filter(isNaturalVoice));
   readonly others = computed(() => this.speech.voices().filter((v) => !isNaturalVoice(v)));
-  readonly bestName = computed(() => this.speech.voices()[0]?.name ?? '—');
+  readonly bestName = computed(
+    () => this.speech.hostedVoices()[0]?.name ?? this.speech.voices()[0]?.name ?? '—',
+  );
+  readonly stateKeys: Record<NonNullable<HostedState>, TKey> = {
+    daily: 'account.voice.state.daily',
+    monthly: 'account.voice.state.monthly',
+    off: 'account.voice.state.off',
+  };
   readonly previewing = computed(() => this.speech.speakingId() === 'preview');
 
   constructor() {

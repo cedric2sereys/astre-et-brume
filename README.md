@@ -26,6 +26,7 @@ AI astrologer that reads their natal chart and personal daily horoscope.
 - `src/environments/environment.ts` — Supabase URL + publishable key (public by design; never put a secret key here)
 - `supabase/migrations/` — SQL to run once in the Supabase SQL Editor, in order
 - `supabase/functions/chat/index.ts` — the agent: loads profile + history, gets FreeAstroAPI data, asks Gemini, saves the exchange
+- `supabase/functions/voice/index.ts` — reads replies aloud with Gradium voices (free plan, non-commercial), counting characters in `voice_usage` (per-user daily cap + app-wide monthly budget); the browser voice takes over when it refuses or fails
 - `scripts/` — PowerShell scripts to test a Gemini or FreeAstroAPI key from this PC
 
 ## Supabase setup
@@ -35,8 +36,10 @@ Edge Function secrets (Supabase → Edge Functions → Secrets):
 - `GEMINI_API_KEY` — Google AI Studio key
 - `FREEASTRO_API_KEY` — FreeAstroAPI key
 - `GEMINI_MODEL` — optional, defaults to `gemini-flash-latest`
+- `GRADIUM_API_KEY` — Gradium key (function `voice`)
+- `VOICE_DAILY_CHARS` / `VOICE_MONTHLY_CHARS` — optional caps for `voice` (defaults 4000 per user per day, 42000 for the whole app per month; Gradium's free plan is 45,000 characters a month)
 
-Deploy the function by pasting `supabase/functions/chat/index.ts` into Edge Functions → `chat` → Code → Deploy.
+Deploy each function by pasting its `index.ts` into Edge Functions → `chat` (or `voice`) → Code → Deploy.
 
 Auth emails (password reset) are sent through Gmail SMTP from `astre.et.brume@gmail.com`
 (Authentication → Emails → SMTP Settings: host `smtp.gmail.com`, port 465, password = a Google
@@ -59,4 +62,4 @@ GitHub repository: every push to `main` rebuilds and redeploys the site automati
   Node ≥ 24.15, and a bare `24` made Cloudflare pick an older 24.x that fails the build.
 
 The Edge Function is not deployed by Cloudflare: redeploy it in Supabase when
-`supabase/functions/chat/index.ts` changes.
+`supabase/functions/chat/index.ts` or `supabase/functions/voice/index.ts` changes.
