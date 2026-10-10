@@ -37,7 +37,7 @@ const FR = {
 
   // Sign in / sign up / forgot password
   'auth.intro':
-    'Votre compagnon astrologique conversationnel pour une expérience consultative personnalisée, active et durable dans le temps.',
+    'Votre compagnon astrologique conversationnel pour une expérience consultative personnalisée.',
   'auth.eyebrow': "Entrée de l'atelier",
   'auth.signin.title': 'Connexion',
   'auth.signin.lead': "Entrez votre email et votre mot de passe pour accéder à l'atelier.",
@@ -255,7 +255,7 @@ const EN: Record<TKey, string> = {
   'header.language': 'Language',
 
   'auth.intro':
-    'Your conversational astrology companion for a personalised, active and lasting consultation experience.',
+    'Your conversational astrology companion for a personalised consultation experience.',
   'auth.eyebrow': 'Workshop entrance',
   'auth.signin.title': 'Sign in',
   'auth.signin.lead': 'Enter your email and password to enter the workshop.',
