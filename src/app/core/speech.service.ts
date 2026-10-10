@@ -95,6 +95,12 @@ function splitForHosted(text: string): string[] {
   return first ? [first, ...splitForSpeech(rest.join(' '), MAX_HOSTED_PIECE)] : [];
 }
 
+/** One piece of a reply as audio, and who made it ("gradium" or "elevenlabs"). */
+interface Piece {
+  url: string;
+  provider: string;
+}
+
 /** Why hosted voices are not used right now (shown on /compte), or null when they work. */
 export type HostedState = null | 'daily' | 'monthly' | 'off';
 
@@ -102,8 +108,9 @@ const CACHE_SIZE = 40;
 
 /**
  * Reads the agent's replies aloud. With a Gradium voice (the default), each piece of the reply is
- * turned into audio by our "voice" Edge Function within a free allowance; when that is refused or
- * fails, the browser's built-in voices (Web Speech API: free, no key) take over. Voice code must
+ * turned into audio by our "voice" Edge Function within the free allowances (Gradium, then
+ * ElevenLabs); when that is refused or fails, the browser's built-in voices (Web Speech API:
+ * free, no key) take over. Voice code must
  * never break the app: every failure ends in the browser voice or in silence.
  */
 @Injectable({ providedIn: 'root' })
@@ -124,6 +131,8 @@ export class SpeechService {
   readonly autoRead = signal(this.load(AUTO_READ_KEY) === 'true');
   /** Set when hosted voices were refused (daily cap, monthly budget) or are not set up. */
   readonly hostedState = signal<HostedState>(null);
+  /** Messages read (at least partly) by ElevenLabs, whose free plan requires crediting it. */
+  readonly elevenLabsIds = signal<ReadonlySet<string>>(new Set());
 
   private readonly allVoices = signal<SpeechSynthesisVoice[]>([]);
   /** The voices chosen on /compte, per interface language: '' = automatic, "gradium:<id>" or a voiceURI. */
@@ -157,8 +166,8 @@ export class SpeechService {
   private run = 0;
   /** Ends the piece being played (resolves its promise) when the reading is stopped. */
   private endPiece: (() => void) | null = null;
-  /** Audio already received this visit (voice + text → object URL), so replaying costs nothing. */
-  private readonly cache = new Map<string, string>();
+  /** Audio already received this visit (voice + text → audio), so replaying costs nothing. */
+  private readonly cache = new Map<string, Piece>();
 
   constructor() {
     if (this.synth) {
@@ -287,18 +296,21 @@ export class SpeechService {
 
   /** Plays the pieces one after the other, fetching the next while the current one plays. */
   private async speakHosted(id: string, pieces: string[], voice: HostedVoice, run: number): Promise<void> {
-    const loads: Promise<string | null>[] = [];
+    const loads: Promise<Piece | null>[] = [];
     const load = (i: number) => (loads[i] ??= this.fetchPiece(pieces[i], voice));
     for (let i = 0; i < pieces.length; i++) {
-      const url = await load(i);
+      const piece = await load(i);
       if (run !== this.run) return;
-      if (!url) {
+      if (!piece) {
         // Refused or failed: the browser voice reads the rest of the reply.
         this.speakBrowser(id, splitForSpeech(pieces.slice(i).join(' ')));
         return;
       }
+      if (piece.provider === 'elevenlabs' && !this.elevenLabsIds().has(id)) {
+        this.elevenLabsIds.update((ids) => new Set(ids).add(id));
+      }
       if (i + 1 < pieces.length) void load(i + 1);
-      const played = await this.play(url);
+      const played = await this.play(piece.url);
       if (run !== this.run) return;
       if (!played) {
         this.speakBrowser(id, splitForSpeech(pieces.slice(i).join(' ')));
@@ -308,9 +320,10 @@ export class SpeechService {
     if (this.speakingId() === id) this.speakingId.set(null);
   }
 
-  /** The audio of one piece as an object URL, or null if hosted voices cannot read it. */
-  private async fetchPiece(text: string, voice: HostedVoice, retry = true): Promise<string | null> {
-    const key = `${voice.id}|${this.format}|${text}`;
+  /** The audio of one piece, or null if hosted voices cannot read it. */
+  private async fetchPiece(text: string, voice: HostedVoice, retry = true): Promise<Piece | null> {
+    const lang = this.i18n.lang();
+    const key = `${voice.id}|${lang}|${this.format}|${text}`;
     const cached = this.cache.get(key);
     if (cached) return cached;
     if (this.hostedState()) return null;
@@ -327,7 +340,7 @@ export class SpeechService {
           apikey: environment.supabasePublishableKey,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text, voice_id: voice.id, format: this.format }),
+        body: JSON.stringify({ text, voice_id: voice.id, lang, format: this.format }),
       });
     } catch {
       return null; // network down
@@ -338,20 +351,23 @@ export class SpeechService {
       else if (error === 'quota_monthly') this.hostedState.set('monthly');
       else if (error === 'not_configured' || res.status === 404) this.hostedState.set('off');
       else if (error === 'busy' && retry) {
-        // Gradium's free plan reads only 2 pieces at once for the whole app: wait a moment.
+        // The free plans read only a few pieces at once for the whole app: wait a moment.
         await new Promise((r) => setTimeout(r, 1200));
         return this.fetchPiece(text, voice, false);
       }
       return null;
     }
-    const url = URL.createObjectURL(await res.blob());
-    this.cache.set(key, url);
+    const piece: Piece = {
+      url: URL.createObjectURL(await res.blob()),
+      provider: res.headers.get('x-voice-provider') ?? 'gradium',
+    };
+    this.cache.set(key, piece);
     if (this.cache.size > CACHE_SIZE) {
-      const [oldKey, oldUrl] = this.cache.entries().next().value!;
+      const [oldKey, old] = this.cache.entries().next().value!;
       this.cache.delete(oldKey);
-      URL.revokeObjectURL(oldUrl);
+      URL.revokeObjectURL(old.url);
     }
-    return url;
+    return piece;
   }
 
   /** Plays one piece; true when it played to the end (or was stopped), false if it failed. */

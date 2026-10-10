@@ -29,15 +29,18 @@ Settings → General → Keyboard → Enable Dictation (+ Microphone and Speech 
 a step-by-step notice shows this when the 🎤 cannot start. Voice code must never block the app
 (an iPhone Safari crash in it once kept users on the login page).
 
-## In progress (2026-10-10): hosted voices
+## In progress (2026-10-11): hosted voices
 The owner confirmed the app is free and non-commercial (both free plans require that).
 Gradium step written, waiting for the owner's setup and test: Edge Function `voice`
 (`supabase/functions/voice/index.ts`), migration `005_voice_usage.sql`, secret `GRADIUM_API_KEY`.
 Gradium voices are the automatic choice (FR Noémie, EN Tilly); the browser voice takes over when
 the per-user daily cap (4000 chars) or the app's monthly budget (42000 of Gradium's free 45000) is
 reached or Gradium fails. The Gradium key ("astre-et-brume") expires 2037-12-31. Gradium free: API yes, commercial no, no attribution, 2 readings at once.
-Next: ElevenLabs free (≈ 10 min/month, non-commercial, must credit "elevenlabs.io" in the app)
-between Gradium and the browser voice. Real people's/celebrity voices are not allowed: only the
+Gradium tested and working (2026-10-11; a short first piece makes the reading start sooner).
+ElevenLabs step written (same `voice` function tries it after Gradium; Flash model ≈ 20,000 free
+chars/month; caps 1500/user/day, 18000/month; default voice "Sarah"; "Voix : elevenlabs.io" credit
+next to each reply it read), waiting for the owner's key (`ELEVENLABS_API_KEY`), redeploy and test.
+Dictation stays on the browser (owner's choice: Gradium STT would share the same free credits). Real people's/celebrity voices are not allowed: only the
 provider's library voices. Android phones are not tested yet.
 
 ## Ideas set aside

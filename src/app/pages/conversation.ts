@@ -100,6 +100,11 @@ const GREETING: Message = { from: 'agent', text: '', greeting: true };
                 <span class="eyebrow">{{ i18n.t('chat.agent') }}</span>
                 @if (speech.supported && !(busy() && $last)) {
                   @let reading = speech.speakingId() === speechId($index);
+                  @if (speech.elevenLabsIds().has(speechId($index))) {
+                    <a class="credit" href="https://elevenlabs.io" target="_blank" rel="noopener">
+                      {{ i18n.t('chat.voiceCredit') }}
+                    </a>
+                  }
                   <button
                     class="listen"
                     type="button"
@@ -245,6 +250,8 @@ const GREETING: Message = { from: 'agent', text: '', greeting: true };
       &:hover { border-color: var(--gold-dim); }
       &.on { border-color: var(--gold-dim); background: rgba(193, 160, 94, 0.12); }
     }
+    .credit { margin-left: auto; font-size: 0.75rem; color: var(--muted); text-decoration: none; }
+    .credit:hover { color: var(--gold-soft); }
     .pill.on { background: rgba(193, 160, 94, 0.14); }
     .user {
       align-self: flex-end;

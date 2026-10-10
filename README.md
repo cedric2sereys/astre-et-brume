@@ -26,7 +26,7 @@ AI astrologer that reads their natal chart and personal daily horoscope.
 - `src/environments/environment.ts` — Supabase URL + publishable key (public by design; never put a secret key here)
 - `supabase/migrations/` — SQL to run once in the Supabase SQL Editor, in order
 - `supabase/functions/chat/index.ts` — the agent: loads profile + history, gets FreeAstroAPI data, asks Gemini, saves the exchange
-- `supabase/functions/voice/index.ts` — reads replies aloud with Gradium voices (free plan, non-commercial), counting characters in `voice_usage` (per-user daily cap + app-wide monthly budget); the browser voice takes over when it refuses or fails
+- `supabase/functions/voice/index.ts` — reads replies aloud with Gradium voices, then ElevenLabs when Gradium refuses or fails (both free plans, non-commercial; ElevenLabs is credited "elevenlabs.io" next to the replies it reads), counting characters in `voice_usage` (per-user daily cap + app-wide monthly budget per provider); the browser voice takes over when both refuse or fail
 - `scripts/` — PowerShell scripts to test a Gemini or FreeAstroAPI key from this PC
 
 ## Supabase setup
@@ -37,7 +37,12 @@ Edge Function secrets (Supabase → Edge Functions → Secrets):
 - `FREEASTRO_API_KEY` — FreeAstroAPI key
 - `GEMINI_MODEL` — optional, defaults to `gemini-flash-latest`
 - `GRADIUM_API_KEY` — Gradium key (function `voice`)
-- `VOICE_DAILY_CHARS` / `VOICE_MONTHLY_CHARS` — optional caps for `voice` (defaults 4000 per user per day, 42000 for the whole app per month; Gradium's free plan is 45,000 characters a month)
+- `ELEVENLABS_API_KEY` — ElevenLabs key (function `voice`; needs the "Text to Speech" permission)
+- Optional caps for `voice`: `GRADIUM_DAILY_CHARS` / `GRADIUM_MONTHLY_CHARS` (defaults 4000 per user per day,
+  42000 for the whole app per month; free plan 45,000), `ELEVENLABS_DAILY_CHARS` / `ELEVENLABS_MONTHLY_CHARS`
+  (defaults 1500 and 18000; free plan ≈ 20,000 characters with the Flash model). Setting `GRADIUM_DAILY_CHARS`
+  to `1` for a moment is a way to test ElevenLabs.
+- `ELEVENLABS_VOICE_FR` / `ELEVENLABS_VOICE_EN` — optional ElevenLabs voice ids (default: "Sarah", a default voice)
 
 Deploy each function by pasting its `index.ts` into Edge Functions → `chat` (or `voice`) → Code → Deploy.
 
