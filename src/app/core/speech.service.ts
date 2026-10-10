@@ -71,6 +71,8 @@ const GRADIUM_PREFIX = 'gradium:';
 const MAX_PIECE = 220;
 /** Hosted voices get bigger pieces (fewer requests); the "voice" function accepts up to 600. */
 const MAX_HOSTED_PIECE = 450;
+/** …except the first, kept short so the reading starts quickly while the rest is prepared. */
+const FIRST_HOSTED_PIECE = 150;
 
 function splitForSpeech(text: string, max = MAX_PIECE): string[] {
   const pieces: string[] = [];
@@ -85,6 +87,12 @@ function splitForSpeech(text: string, max = MAX_PIECE): string[] {
     }
   }
   return pieces;
+}
+
+/** Pieces for a hosted voice: a short first one, then bigger ones. */
+function splitForHosted(text: string): string[] {
+  const [first, ...rest] = splitForSpeech(text, FIRST_HOSTED_PIECE);
+  return first ? [first, ...splitForSpeech(rest.join(' '), MAX_HOSTED_PIECE)] : [];
 }
 
 /** Why hosted voices are not used right now (shown on /compte), or null when they work. */
@@ -187,7 +195,7 @@ export class SpeechService {
     const text = markdownToText(markdown);
     const hosted = this.hostedState() ? null : this.hostedVoice();
     if (hosted && this.audio) {
-      const pieces = splitForSpeech(text, MAX_HOSTED_PIECE);
+      const pieces = splitForHosted(text);
       if (!pieces.length) return;
       // speak() runs during a tap: unlock both players now, the audio arrives later.
       this.primeAudio();
