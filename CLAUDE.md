@@ -35,7 +35,7 @@ Gradium step written, waiting for the owner's setup and test: Edge Function `voi
 (`supabase/functions/voice/index.ts`), migration `005_voice_usage.sql`, secret `GRADIUM_API_KEY`.
 Gradium voices are the automatic choice (FR Noémie, EN Tilly); the browser voice takes over when
 the per-user daily cap (4000 chars) or the app's monthly budget (42000 of Gradium's free 45000) is
-reached or Gradium fails. Gradium free: API yes, commercial no, no attribution, 2 readings at once.
+reached or Gradium fails. The Gradium key ("astre-et-brume") expires 2037-12-31. Gradium free: API yes, commercial no, no attribution, 2 readings at once.
 Next: ElevenLabs free (≈ 10 min/month, non-commercial, must credit "elevenlabs.io" in the app)
 between Gradium and the browser voice. Real people's/celebrity voices are not allowed: only the
 provider's library voices. Android phones are not tested yet.
