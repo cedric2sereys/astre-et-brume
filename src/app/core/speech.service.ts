@@ -104,7 +104,7 @@ interface Piece {
 /** Why hosted voices are not used right now (shown on /compte), or null when they work. */
 export type HostedState = null | 'daily' | 'monthly' | 'off';
 
-const CACHE_SIZE = 40;
+const CACHE_SIZE = 15; // replies
 
 /**
  * Reads the agent's replies aloud. With a Gradium voice (the default), each piece of the reply is
@@ -166,8 +166,8 @@ export class SpeechService {
   private run = 0;
   /** Ends the piece being played (resolves its promise) when the reading is stopped. */
   private endPiece: (() => void) | null = null;
-  /** Audio already received this visit (voice + text → audio), so replaying costs nothing. */
-  private readonly cache = new Map<string, Piece>();
+  /** Replies already received as audio this visit (voice + text → pieces), so replaying costs nothing. */
+  private readonly cache = new Map<string, Piece[]>();
 
   constructor() {
     if (this.synth) {
@@ -202,7 +202,7 @@ export class SpeechService {
   speak(id: string, markdown: string): void {
     this.stop();
     const text = markdownToText(markdown);
-    const hosted = this.hostedState() ? null : this.hostedVoice();
+    const hosted = this.hostedState() === 'off' ? null : this.hostedVoice();
     if (hosted && this.audio) {
       const pieces = splitForHosted(text);
       if (!pieces.length) return;
@@ -294,10 +294,20 @@ export class SpeechService {
 
   // --- Hosted voice (Gradium) -----------------------------------------------------
 
-  /** Plays the pieces one after the other, fetching the next while the current one plays. */
+  /**
+   * Plays the pieces one after the other, fetching the next while the current one plays.
+   * The whole reply is read by one voice: the provider that read the first piece reads the rest.
+   */
   private async speakHosted(id: string, pieces: string[], voice: HostedVoice, run: number): Promise<void> {
+    const key = `${voice.id}|${this.i18n.lang()}|${this.format}|${pieces.join(' ')}`;
+    const cached = this.cache.get(key);
+    const loaded: Piece[] = [];
+    let provider: string | null = null;
     const loads: Promise<Piece | null>[] = [];
-    const load = (i: number) => (loads[i] ??= this.fetchPiece(pieces[i], voice));
+    const load = (i: number) =>
+      (loads[i] ??= cached
+        ? Promise.resolve(cached[i])
+        : this.fetchPiece(pieces[i], voice, provider, i === 0 ? pieces.join(' ').length : 0));
     for (let i = 0; i < pieces.length; i++) {
       const piece = await load(i);
       if (run !== this.run) return;
@@ -306,6 +316,9 @@ export class SpeechService {
         this.speakBrowser(id, splitForSpeech(pieces.slice(i).join(' ')));
         return;
       }
+      provider = piece.provider;
+      loaded[i] = piece;
+      if (!cached && loaded.length === pieces.length) this.remember(key, loaded);
       if (piece.provider === 'elevenlabs' && !this.elevenLabsIds().has(id)) {
         this.elevenLabsIds.update((ids) => new Set(ids).add(id));
       }
@@ -320,14 +333,19 @@ export class SpeechService {
     if (this.speakingId() === id) this.speakingId.set(null);
   }
 
-  /** The audio of one piece, or null if hosted voices cannot read it. */
-  private async fetchPiece(text: string, voice: HostedVoice, retry = true): Promise<Piece | null> {
-    const lang = this.i18n.lang();
-    const key = `${voice.id}|${lang}|${this.format}|${text}`;
-    const cached = this.cache.get(key);
-    if (cached) return cached;
-    if (this.hostedState()) return null;
-
+  /**
+   * The audio of one piece, or null if hosted voices cannot read it. The first piece of a reply
+   * sends the reply's length (`replyChars`) so the server picks a voice that can read all of it;
+   * the following ones send the `provider` that read the first.
+   */
+  private async fetchPiece(
+    text: string,
+    voice: HostedVoice,
+    provider: string | null,
+    replyChars: number,
+    retry = true,
+  ): Promise<Piece | null> {
+    if (this.hostedState() === 'off') return null;
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
     if (!token) return null;
@@ -340,34 +358,45 @@ export class SpeechService {
           apikey: environment.supabasePublishableKey,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text, voice_id: voice.id, lang, format: this.format }),
+        body: JSON.stringify({
+          text,
+          voice_id: voice.id,
+          lang: this.i18n.lang(),
+          format: this.format,
+          ...(provider ? { provider } : { reply_chars: replyChars }),
+        }),
       });
     } catch {
       return null; // network down
     }
     if (!res.ok) {
       const error = (await res.json().catch(() => ({})))?.error;
-      if (error === 'quota_daily') this.hostedState.set('daily');
-      else if (error === 'quota_monthly') this.hostedState.set('monthly');
+      // Only a first piece was offered to every provider: that tells why hosted voices are not used.
+      if (!provider && error === 'quota_daily') this.hostedState.set('daily');
+      else if (!provider && error === 'quota_monthly') this.hostedState.set('monthly');
       else if (error === 'not_configured' || res.status === 404) this.hostedState.set('off');
       else if (error === 'busy' && retry) {
         // The free plans read only a few pieces at once for the whole app: wait a moment.
         await new Promise((r) => setTimeout(r, 1200));
-        return this.fetchPiece(text, voice, false);
+        return this.fetchPiece(text, voice, provider, replyChars, false);
       }
       return null;
     }
-    const piece: Piece = {
+    if (!provider) this.hostedState.set(null); // a shorter reply can fit after a refusal
+    return {
       url: URL.createObjectURL(await res.blob()),
       provider: res.headers.get('x-voice-provider') ?? 'gradium',
     };
-    this.cache.set(key, piece);
+  }
+
+  /** Keeps a reply's audio for this visit, so replaying it costs nothing. */
+  private remember(key: string, pieces: Piece[]): void {
+    this.cache.set(key, [...pieces]);
     if (this.cache.size > CACHE_SIZE) {
       const [oldKey, old] = this.cache.entries().next().value!;
       this.cache.delete(oldKey);
-      URL.revokeObjectURL(old.url);
+      old.forEach((p) => URL.revokeObjectURL(p.url));
     }
-    return piece;
   }
 
   /** Plays one piece; true when it played to the end (or was stopped), false if it failed. */

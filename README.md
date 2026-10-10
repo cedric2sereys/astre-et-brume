@@ -26,7 +26,7 @@ AI astrologer that reads their natal chart and personal daily horoscope.
 - `src/environments/environment.ts` — Supabase URL + publishable key (public by design; never put a secret key here)
 - `supabase/migrations/` — SQL to run once in the Supabase SQL Editor, in order
 - `supabase/functions/chat/index.ts` — the agent: loads profile + history, gets FreeAstroAPI data, asks Gemini, saves the exchange
-- `supabase/functions/voice/index.ts` — reads replies aloud with Gradium voices, then ElevenLabs when Gradium refuses or fails (both free plans, non-commercial; ElevenLabs is credited "elevenlabs.io" next to the replies it reads), counting characters in `voice_usage` (per-user daily cap + app-wide monthly budget per provider); the browser voice takes over when both refuse or fail
+- `supabase/functions/voice/index.ts` — reads replies aloud with Gradium voices, then ElevenLabs when Gradium refuses or fails (both free plans, non-commercial; ElevenLabs is credited "elevenlabs.io" next to the replies it reads), counting characters in `voice_usage` (per-user daily cap + app-wide monthly budget per provider; one voice per reply: the first piece picks the provider whose caps fit the whole reply); the browser voice takes over when both refuse or fail
 - `scripts/` — PowerShell scripts to test a Gemini or FreeAstroAPI key from this PC
 
 ## Supabase setup

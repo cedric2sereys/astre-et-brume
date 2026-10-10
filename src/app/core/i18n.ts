@@ -206,7 +206,7 @@ const FR = {
   'account.voice.auto': 'Automatique ({name})',
   'account.voice.gradium': 'Voix Gradium (les plus naturelles)',
   'account.voice.state.daily':
-    "Limite quotidienne des voix premium atteinte : la voix du navigateur lit les réponses jusqu'à demain.",
+    "Limite quotidienne des voix premium presque atteinte : jusqu'à demain, les réponses qui n'y tiennent plus sont lues par la voix du navigateur.",
   'account.voice.state.monthly':
     'Le quota mensuel gratuit des voix premium est épuisé : la voix du navigateur lit les réponses ce mois-ci.',
   'account.voice.state.off':
@@ -420,7 +420,7 @@ const EN: Record<TKey, string> = {
   'account.voice.auto': 'Automatic ({name})',
   'account.voice.gradium': 'Gradium voices (the most natural)',
   'account.voice.state.daily':
-    "Premium voices' daily limit reached: your browser's voice reads the replies until tomorrow.",
+    "Premium voices' daily limit almost reached: until tomorrow, replies that no longer fit are read by your browser's voice.",
   'account.voice.state.monthly':
     "Premium voices' free monthly allowance is used up: your browser's voice reads the replies this month.",
   'account.voice.state.off': "Premium voices are not available right now: your browser's voice reads the replies.",

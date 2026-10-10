@@ -5,9 +5,13 @@
 //
 // The browser sends { text, voice_id, lang: 'fr' | 'en', format: 'opus' | 'wav' } and gets the audio
 // back, with the provider used in the X-Voice-Provider header. Every character is counted in
-// voice_usage (migration 005) before calling a provider, so the app stays within each free monthly
-// budget and each user within a daily cap. When Gradium refuses or fails, ElevenLabs is tried; when
-// both do, the browser reads the reply with its own built-in voice.
+// voice_usage (migrations 005, 006) before calling a provider, so the app stays within each free
+// monthly budget and each user within a daily cap.
+//
+// One voice per reply: the first piece of a reply also sends reply_chars (the whole reply's length)
+// and gets the first provider whose caps still fit the whole reply (Gradium, else ElevenLabs);
+// the following pieces send that provider back and are read by it only. When nobody can read the
+// reply, the browser reads it with its own built-in voice.
 //
 // Secrets (Supabase → Edge Functions → Secrets): GRADIUM_API_KEY, ELEVENLABS_API_KEY
 // (a provider without its key is skipped).
@@ -18,6 +22,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.117.2';
 
 const MAX_TEXT_LENGTH = 600; // the browser sends a reply in pieces of a few sentences
+const MAX_REPLY_CHARS = 20000;
 const VOICE_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
 
 const corsHeaders = {
@@ -42,6 +47,10 @@ interface Reading {
   voiceId: string; // the Gradium voice chosen on /compte
   lang: 'fr' | 'en';
   opus: boolean;
+  /** Characters that must still fit the caps: the whole reply for its first piece. */
+  needed: number;
+  /** The provider that read the reply's first piece, for the following pieces. */
+  provider: string | null;
 }
 
 /** Audio, or why the provider could not read: 'busy' (too many at once) or 'failed'. */
@@ -143,9 +152,9 @@ function wav(pcm: Uint8Array, sampleRate: number): Uint8Array<ArrayBuffer> {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
-  const providers = [gradium, elevenlabs].filter((p) => p.key);
+  const configured = [gradium, elevenlabs].filter((p) => p.key);
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  if (!providers.length || !serviceKey) return json({ error: 'not_configured' }, 503);
+  if (!configured.length || !serviceKey) return json({ error: 'not_configured' }, 503);
 
   // --- Who is calling? --------------------------------------------------------
   const authHeader = req.headers.get('Authorization');
@@ -165,11 +174,14 @@ Deno.serve(async (req) => {
   let r: Reading;
   try {
     const body = await req.json();
+    const text = String(body?.text ?? '').trim();
     r = {
-      text: String(body?.text ?? '').trim(),
+      text,
       voiceId: String(body?.voice_id ?? ''),
       lang: body?.lang === 'en' ? 'en' : 'fr',
       opus: body?.format === 'opus',
+      needed: Math.max(text.length, Math.min(Math.trunc(Number(body?.reply_chars)) || 0, MAX_REPLY_CHARS)),
+      provider: typeof body?.provider === 'string' ? body.provider : null,
     };
   } catch {
     return json({ error: 'invalid_body' }, 400);
@@ -181,18 +193,20 @@ Deno.serve(async (req) => {
   // --- First provider within its free allowance that manages to read it ------------
   // The service role is needed: users cannot touch voice_usage themselves.
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, serviceKey, { auth: { persistSession: false } });
-  const reserve = (p: Provider, chars: number) =>
+  const reserve = (p: Provider, chars: number, needed = chars) =>
     admin.rpc('reserve_voice_chars', {
       p_user: userId,
       p_provider: p.name,
       p_chars: chars,
+      p_needed: needed,
       p_daily_cap: p.dailyChars,
       p_monthly_cap: p.monthlyChars,
     });
 
+  const providers = r.provider ? configured.filter((p) => p.name === r.provider) : configured;
   const refusals: string[] = [];
   for (const p of providers) {
-    const { data: verdict, error: reserveError } = await reserve(p, r.text.length);
+    const { data: verdict, error: reserveError } = await reserve(p, r.text.length, r.needed);
     if (reserveError) {
       console.error('counting characters failed', reserveError);
       return json({ error: 'not_configured' }, 503);
@@ -216,7 +230,8 @@ Deno.serve(async (req) => {
     refusals.push(result);
   }
 
-  // Nobody could read it: the browser voice takes over.
+  // Nobody could read it: the browser voice takes over (for the rest of the reply, if a piece
+  // was refused after the first).
   if (refusals.includes('daily')) return json({ error: 'quota_daily' }, 429);
   if (refusals.includes('monthly')) return json({ error: 'quota_monthly' }, 429);
   if (refusals.includes('busy')) return json({ error: 'busy' }, 429);

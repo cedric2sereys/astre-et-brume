@@ -32,8 +32,10 @@ a step-by-step notice shows this when the 🎤 cannot start. Voice code must nev
 
 ## Hosted voices (done and tested on PC, 2026-10-11)
 The owner confirmed the app is free and non-commercial (both free plans require that).
-Edge Function `voice` (`supabase/functions/voice/index.ts`) + migration `005_voice_usage.sql`:
+Edge Function `voice` (`supabase/functions/voice/index.ts`) + migrations `005_voice_usage.sql`, `006_voice_whole_reply.sql`:
 Gradium first, then ElevenLabs, then the browser voice when both refuse (caps) or fail.
+One voice per reply (owner's request): the provider must fit the whole reply's length.
+Written 2026-10-11; waiting for the owner to run 006, redeploy `voice` and test.
 - Gradium: set up, tested and working. Automatic choice (FR Noémie, EN Tilly); caps 4000 chars per
   user per day, 42000 per month (free plan 45000). Free plan: API yes, commercial no, no attribution,
   2 readings at once. Key "astre-et-brume" expires 2037-12-31. A short first piece makes readings start sooner.
