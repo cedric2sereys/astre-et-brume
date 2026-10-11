@@ -50,12 +50,11 @@ Real people's/celebrity voices are not allowed: only the provider's library voic
 
 ## Next steps (pick up here with the owner)
 Check voice usage with: `select provider, day, chars from voice_usage order by day desc, provider;`
-1. iPhone Safari: already OK on 2026-10-11 for /compte preview, 🔊 and auto-read with Noémie (the owner's
-   saved "Amélie" had to be switched to "Automatique (Noémie)"). The "quieter second paragraph" was
-   ElevenLabs taking over when the Gradium daily cap was reached: retest a long reply after the reset
-   (2 am French time).
-2. iPhone Chrome: test the same (preview on /compte, 🔊, auto-read).
-3. Android phones: never tested.
+iPhone Safari tested OK 2026-10-12: preview, 🔊, auto-read, one voice per reply at the same volume, short
+pause after the first sentence (second piece fetched at once, growing piece sizes 150/300/450).
+A browser voice saved earlier on a device (e.g. "Amélie") must be switched to "Automatique (Noémie)".
+1. iPhone Chrome: test the same (preview on /compte, 🔊, auto-read).
+2. Android phones: never tested.
 
 ## Ideas set aside
 Own domain name, full mobile check, legal notice / privacy page, reset email in the user's
