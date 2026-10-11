@@ -156,7 +156,8 @@ const FR = {
   'tour.title': 'Découvrir la lecture à voix haute',
   'tour.listen': 'Touchez 🔊 pour écouter une réponse à voix haute.',
   'tour.autoRead': 'Activez « Lecture auto » pour entendre chaque nouvelle réponse dès qu’elle arrive.',
-  'tour.account': 'Choisissez votre voix préférée dans « {account} ».',
+  'tour.account':
+    'Choisissez votre voix préférée dans « {account} ». Les voix les plus naturelles ont une limite quotidienne : au-delà, une voix plus simple prend le relais jusqu’au lendemain.',
   'tour.next': 'Suivant',
   'tour.skip': 'Passer',
   'tour.done': 'J’ai compris',
@@ -380,7 +381,8 @@ const EN: Record<TKey, string> = {
   'tour.title': 'Discover reading aloud',
   'tour.listen': 'Tap 🔊 to hear a reply read aloud.',
   'tour.autoRead': 'Turn on "Auto-read" to hear each new reply as soon as it arrives.',
-  'tour.account': 'Choose your favourite voice in "{account}".',
+  'tour.account':
+    'Choose your favourite voice in "{account}". The most natural voices have a daily limit: beyond it, a simpler voice takes over until the next day.',
   'tour.next': 'Next',
   'tour.skip': 'Skip',
   'tour.done': 'Got it',
