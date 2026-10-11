@@ -53,8 +53,11 @@ Check voice usage with: `select provider, day, chars from voice_usage order by d
 iPhone Safari tested OK 2026-10-12: preview, 🔊, auto-read, one voice per reply at the same volume, short
 pause after the first sentence (second piece fetched at once, growing piece sizes 150/300/450).
 A browser voice saved earlier on a device (e.g. "Amélie") must be switched to "Automatique (Noémie)".
-1. iPhone Chrome: test the same (preview on /compte, 🔊, auto-read).
-2. Android phones: never tested.
+iPhone Chrome tested OK 2026-10-12 (preview, 🔊, auto-read; a long reply went to ElevenLabs because the
+owner's Gradium daily cap was nearly used, as designed). Browser voices saved before Gradium are
+reset once to automatic (key `astre-et-brume.voice.hostedReset`). voice_usage has one row per user per
+day per provider (all devices of an account count together).
+1. Android phones: never tested.
 
 ## Ideas set aside
 Own domain name, full mobile check, legal notice / privacy page, reset email in the user's
