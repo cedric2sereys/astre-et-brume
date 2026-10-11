@@ -56,6 +56,21 @@ keep `{{ .ConfirmationURL }}` in it.
 Authentication → URL Configuration: Site URL `https://astre-et-brume.pages.dev`; Redirect URLs
 `https://astre-et-brume.pages.dev/**` and `http://localhost:4200/**` (for local development).
 
+Users overview (SQL Editor; saved there as "Utilisateurs"): one line per account, newest first.
+
+```sql
+select u.email, u.created_at as signed_up, u.last_sign_in_at as last_login,
+       p.pseudo, p.birth_date, p.birth_time, p.birth_place,
+       count(distinct c.id) as conversations, count(m.id) as messages,
+       max(m.created_at) as last_message
+from auth.users u
+left join public.profiles p on p.id = u.id
+left join public.conversations c on c.user_id = u.id
+left join public.chat_messages m on m.conversation_id = c.id
+group by u.id, p.id
+order by u.created_at desc;
+```
+
 ## Hosting (Cloudflare Pages)
 
 Live at **https://astre-et-brume.pages.dev**. The Cloudflare Pages project is connected to this
