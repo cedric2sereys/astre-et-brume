@@ -35,7 +35,7 @@ The owner confirmed the app is free and non-commercial (both free plans require 
 Edge Function `voice` (`supabase/functions/voice/index.ts`) + migrations `005_voice_usage.sql`, `006_voice_whole_reply.sql`:
 Gradium first, then ElevenLabs, then the browser voice when both refuse (caps) or fail.
 One voice per reply (owner's request): the provider must fit the whole reply's length.
-Written 2026-10-11; waiting for the owner to run 006, redeploy `voice` and test.
+Done 2026-10-11 (006 run, `voice` redeployed), not tested yet.
 - Gradium: set up, tested and working. Automatic choice (FR Noémie, EN Tilly); caps 4000 chars per
   user per day, 42000 per month (free plan 45000). Free plan: API yes, commercial no, no attribution,
   2 readings at once. Key "astre-et-brume" expires 2037-12-31. A short first piece makes readings start sooner.
@@ -48,9 +48,16 @@ Written 2026-10-11; waiting for the owner to run 006, redeploy `voice` and test.
 Dictation stays on the browser (owner's choice: Gradium STT would share the same free credits).
 Real people's/celebrity voices are not allowed: only the provider's library voices.
 
-## Next step (not started; confirm with the owner first)
-Check the hosted voices on iPhone (Safari gets WAV instead of Opus on older iOS; the audio is
-unlocked during the tap) and test Android phones, which have not been tested yet.
+## Next steps (pick up here with the owner)
+1. Test "one voice per reply" on PC: a long reply never heard this visit must be read by ONE voice
+   only (Gradium, ElevenLabs or browser), never switching midway; replays reuse the same audio.
+   Check usage with: `select provider, day, chars from voice_usage order by day desc, provider;`
+2. iPhone Safari: already OK on 2026-10-11 for /compte preview, 🔊 and auto-read with Noémie (the owner's
+   saved "Amélie" had to be switched to "Automatique (Noémie)"). The "quieter second paragraph" was
+   ElevenLabs taking over when the Gradium daily cap was reached: retest a long reply after the reset
+   (2 am French time).
+3. iPhone Chrome: test the same (preview on /compte, 🔊, auto-read).
+4. Android phones: never tested.
 
 ## Ideas set aside
 Own domain name, full mobile check, legal notice / privacy page, reset email in the user's
