@@ -64,3 +64,5 @@ language only. Android phones never tested (the owner has none). Free downloadab
 (Kyutai Pocket TTS, Kokoro, Piper…; ElevenLabs/Gradium have no local version): only useful for everyone
 if run inside each visitor's browser (big download, slow on phones, French uncertain); a possible
 better last fallback if the free caps ever become a real problem.
+Making the GitHub repo public: checked 2026-10-12, no secrets in the history, no user data in the repo
+(scripts/samples use a made-up test birth date, kept); redo a quick check before switching it.
