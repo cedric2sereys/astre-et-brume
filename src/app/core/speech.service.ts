@@ -6,6 +6,8 @@ import { supabase } from './supabase';
 
 const AUTO_READ_KEY = 'astre-et-brume.autoRead';
 const voiceKey = (lang: Lang) => `astre-et-brume.voice.${lang}`;
+/** Set once browser voices chosen before Gradium existed have been reset to automatic (Gradium). */
+const HOSTED_RESET_KEY = 'astre-et-brume.voice.hostedReset';
 
 /**
  * Human-sounding voices: Edge's "Natural" (online) voices, Chrome's Google voices,
@@ -140,10 +142,7 @@ export class SpeechService {
 
   private readonly allVoices = signal<SpeechSynthesisVoice[]>([]);
   /** The voices chosen on /compte, per interface language: '' = automatic, "gradium:<id>" or a voiceURI. */
-  private readonly chosen = signal<Record<Lang, string>>({
-    fr: this.load(voiceKey('fr')) ?? '',
-    en: this.load(voiceKey('en')) ?? '',
-  });
+  private readonly chosen = signal<Record<Lang, string>>(this.loadChoices());
 
   /** Browser voices for the interface language, best first. */
   readonly voices = computed(() => {
@@ -445,6 +444,23 @@ export class SpeechService {
   }
 
   // --- Remembered choices -------------------------------------------------------------
+
+  /**
+   * The voices chosen on /compte. Browser voices chosen before Gradium existed are reset once to
+   * automatic, so everyone hears Gradium; choosing a browser voice afterwards is kept.
+   */
+  private loadChoices(): Record<Lang, string> {
+    const reset = this.load(HOSTED_RESET_KEY) !== 'done';
+    const choice = (lang: Lang) => {
+      const saved = this.load(voiceKey(lang)) ?? '';
+      if (!reset || !saved || saved.startsWith(GRADIUM_PREFIX)) return saved;
+      this.save(voiceKey(lang), '');
+      return '';
+    };
+    const choices = { fr: choice('fr'), en: choice('en') };
+    this.save(HOSTED_RESET_KEY, 'done');
+    return choices;
+  }
 
   private load(key: string): string | null {
     try {
