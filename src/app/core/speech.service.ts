@@ -71,8 +71,9 @@ const GRADIUM_PREFIX = 'gradium:';
 const MAX_PIECE = 220;
 /** Hosted voices get bigger pieces (fewer requests); the "voice" function accepts up to 600. */
 const MAX_HOSTED_PIECE = 450;
-/** …except the first, kept short so the reading starts quickly while the rest is prepared. */
+/** …except the first two, kept short so the reading starts quickly while the rest is prepared. */
 const FIRST_HOSTED_PIECE = 150;
+const SECOND_HOSTED_PIECE = 300;
 
 function splitForSpeech(text: string, max = MAX_PIECE): string[] {
   const pieces: string[] = [];
@@ -89,10 +90,13 @@ function splitForSpeech(text: string, max = MAX_PIECE): string[] {
   return pieces;
 }
 
-/** Pieces for a hosted voice: a short first one, then bigger ones. */
+/** Pieces for a hosted voice: growing sizes, so each is ready before the previous one ends. */
 function splitForHosted(text: string): string[] {
   const [first, ...rest] = splitForSpeech(text, FIRST_HOSTED_PIECE);
-  return first ? [first, ...splitForSpeech(rest.join(' '), MAX_HOSTED_PIECE)] : [];
+  if (!first) return [];
+  const [second, ...others] = splitForSpeech(rest.join(' '), SECOND_HOSTED_PIECE);
+  if (!second) return [first];
+  return [first, second, ...splitForSpeech(others.join(' '), MAX_HOSTED_PIECE)];
 }
 
 /** One piece of a reply as audio, and who made it ("gradium" or "elevenlabs"). */
@@ -304,13 +308,26 @@ export class SpeechService {
     const loaded: Piece[] = [];
     let provider: string | null = null;
     const loads: Promise<Piece | null>[] = [];
-    const load = (i: number) =>
-      (loads[i] ??= cached
-        ? Promise.resolve(cached[i])
-        : this.fetchPiece(pieces[i], voice, provider, i === 0 ? pieces.join(' ').length : 0));
+    const unpinned = new Set<number>(); // pieces asked for before the voice was known
+    // Characters from piece i to the end: what must still fit when a piece picks the voice.
+    const remaining = (i: number) => pieces.slice(i).join(' ').length;
+    const load = (i: number) => {
+      if (cached) return (loads[i] ??= Promise.resolve(cached[i]));
+      if (!loads[i] && !provider) unpinned.add(i);
+      return (loads[i] ??= this.fetchPiece(pieces[i], voice, provider, provider ? 0 : remaining(i)));
+    };
+    // The second piece is asked for at once, before the voice is known: it is checked below.
+    void load(0);
+    if (pieces.length > 1) void load(1);
     for (let i = 0; i < pieces.length; i++) {
-      const piece = await load(i);
+      let piece = await load(i);
       if (run !== this.run) return;
+      if (provider && unpinned.has(i) && piece?.provider !== provider) {
+        // Rare: refused, or read by another voice than the first piece's: ask that voice again.
+        if (piece) URL.revokeObjectURL(piece.url);
+        piece = await this.fetchPiece(pieces[i], voice, provider, 0);
+        if (run !== this.run) return;
+      }
       if (!piece) {
         // Refused or failed: the browser voice reads the rest of the reply.
         this.speakBrowser(id, splitForSpeech(pieces.slice(i).join(' ')));
