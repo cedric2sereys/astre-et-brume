@@ -8,6 +8,7 @@ import { I18n, TKey } from '../core/i18n';
 import { MarkdownPipe } from '../core/markdown.pipe';
 import { SpeechService } from '../core/speech.service';
 import { DictationService } from '../core/dictation.service';
+import { Tour } from '../layout/tour';
 
 interface Message {
   from: 'agent' | 'user';
@@ -20,8 +21,11 @@ const GREETING: Message = { from: 'agent', text: '', greeting: true };
 
 @Component({
   selector: 'app-conversation-page',
-  imports: [FormsModule, MarkdownPipe],
+  imports: [FormsModule, MarkdownPipe, Tour],
   template: `
+    @if (loaded()) {
+      <app-tour />
+    }
     <section class="wrap">
       <header class="card profile">
         <span class="avatar">{{ initial() }}</span>
@@ -59,6 +63,7 @@ const GREETING: Message = { from: 'agent', text: '', greeting: true };
           <button
             class="pill"
             type="button"
+            data-tour="autoread"
             [class.on]="speech.autoRead()"
             [attr.aria-pressed]="speech.autoRead()"
             (click)="speech.autoRead.set(!speech.autoRead())"
@@ -108,6 +113,7 @@ const GREETING: Message = { from: 'agent', text: '', greeting: true };
                   <button
                     class="listen"
                     type="button"
+                    data-tour="listen"
                     [class.on]="reading"
                     [attr.aria-label]="i18n.t(reading ? 'chat.stopListening' : 'chat.listen')"
                     [title]="i18n.t(reading ? 'chat.stopListening' : 'chat.listen')"
@@ -341,6 +347,8 @@ export class ConversationPage {
   /** The open conversation; null = a new one, created on the server with its first message. */
   readonly currentId = signal<string | null>(null);
   readonly panelOpen = signal(false);
+  /** The conversation list and the latest conversation are loaded (the tour can start). */
+  readonly loaded = signal(false);
   // The greeting always opens a conversation; it is not stored. Saved messages follow it.
   readonly messages = signal<Message[]>([GREETING]);
   /** The message being written (a signal: dictation fills it from outside any template event). */
@@ -369,6 +377,7 @@ export class ConversationPage {
       console.error('Loading conversations failed', e);
       this.error.set('chat.err.list');
     }
+    this.loaded.set(true);
   }
 
   async open(id: string): Promise<void> {

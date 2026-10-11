@@ -30,7 +30,7 @@ import { SessionService } from '../core/session.service';
           }
         </div>
         @if (session.isLoggedIn()) {
-          <button class="logout" type="button" (click)="account()">{{ i18n.t('header.account') }}</button>
+          <button class="logout" type="button" data-tour="account" (click)="account()">{{ i18n.t('header.account') }}</button>
           <button class="logout" type="button" (click)="signOut()">{{ i18n.t('header.logout') }}</button>
         }
       </nav>

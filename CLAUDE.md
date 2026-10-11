@@ -52,9 +52,10 @@ Browser voices saved before Gradium are reset once to automatic (key `astre-et-b
 Dictation stays on the browser (owner's choice: Gradium STT would share the same free credits).
 Real people's/celebrity voices are not allowed: only the provider's library voices.
 
-## Next step (agreed 2026-10-12, in progress)
-A one-time 3-bubble tour in the conversation, for new and existing users (once per device): 🔊 on a
-reply, "Lecture auto", and "Mon compte" to choose one's voice. "Suivant" / "J'ai compris" + "Passer".
+## Next step (2026-10-12): voice tour written, waiting for the owner's test
+A one-time 3-bubble tour in the conversation (`layout/tour.ts`), for new and existing users, once per
+device (key `astre-et-brume.tour`): 🔊 on the last reply, "Lecture auto", and "Mon compte" to choose
+one's voice; buttons marked `data-tour="…"`. "Suivant" / "J'ai compris" + "Passer".
 
 ## Ideas set aside
 Own domain name, full mobile check, legal notice / privacy page, reset email in the user's
