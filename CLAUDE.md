@@ -65,6 +65,17 @@ language only. Android phones never tested (the owner has none). Free downloadab
 if run inside each visitor's browser (big download, slow on phones, French uncertain); a possible
 better last fallback if the free caps ever become a real problem.
 
+## Own domain (in progress, started 2026-10-25)
+astre-et-brume.com bought 2026-10-25 at Cloudflare Registrar ($10.46/year, auto-renew on) in the owner's
+personal Cloudflare account (desereyscedric@gmail.com). The Pages site is in the other Cloudflare account
+(astre.et.brume@gmail.com), so the domain cannot be attached yet. Plan: from 2026-11-05 (moves need 10 days
+after registration), move the registration to the astre.et.brume account (Registrar → Manage → Configuration;
+first add the domain there as a website on the Free plan; DNSSEC off; registrant email verified), then:
+Pages custom domain, Supabase Site URL + redirect URLs (keep pages.dev too), free redirect pages.dev → .com,
+then domain email (Resend for sending, Cloudflare Email Routing for receiving; keep the Gmail SMTP settings
+noted to switch back). Users keep their accounts but log in again once and find voice/auto-read/language
+reset and the tour again on the new address (browser storage is per address).
+
 ## Public GitHub repo (done 2026-10-25)
 The repo is public. Commits are signed with the owner's GitHub stand-in address
 `125119948+cedric2sereys@users.noreply.github.com` (set in this repo's git config; the 45 older commits
