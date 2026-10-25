@@ -14,7 +14,7 @@ Read README.md for the stack, setup and deployment. This file holds how we work 
   New SQL in `supabase/migrations/` must be run by the owner in the Supabase SQL Editor.
 
 ## Status (2026-10-11)
-Live at https://astre-et-brume.pages.dev, everything working: login/sign-up, forgot password
+Live at https://astre-et-brume.app (since 2026-10-26; pages.dev redirects there), everything working: login/sign-up, forgot password
 (bilingual email via Gmail SMTP), account deletion, nickname + birth data, Gemini agent with
 FreeAstroAPI natal chart + daily horoscope, streaming replies, Markdown, conversation list,
 FR | EN interface, 8-character passwords with letters and digits.
@@ -65,16 +65,19 @@ language only. Android phones never tested (the owner has none). Free downloadab
 if run inside each visitor's browser (big download, slow on phones, French uncertain); a possible
 better last fallback if the free caps ever become a real problem.
 
-## Own domain (in progress, started 2026-10-25)
-astre-et-brume.com bought 2026-10-25 at Cloudflare Registrar ($10.46/year, auto-renew on) in the owner's
-personal Cloudflare account (desereyscedric@gmail.com). The Pages site is in the other Cloudflare account
-(astre.et.brume@gmail.com), so the domain cannot be attached yet. Plan: from 2026-11-05 (moves need 10 days
-after registration), move the registration to the astre.et.brume account (Registrar → Manage → Configuration;
-first add the domain there as a website on the Free plan; DNSSEC off; registrant email verified), then:
-Pages custom domain, Supabase Site URL + redirect URLs (keep pages.dev too), free redirect pages.dev → .com,
-then domain email (Resend for sending, Cloudflare Email Routing for receiving; keep the Gmail SMTP settings
-noted to switch back). Users keep their accounts but log in again once and find voice/auto-read/language
-reset and the tour again on the new address (browser storage is per address).
+## Own domain (done 2026-10-26; domain email still to do)
+astre-et-brume.app bought 2026-10-25 at Cloudflare Registrar ($8.20 first year, then $14.20/year,
+auto-renew on) in the Cloudflare account that hosts the site (astre.et.brume@gmail.com). Done: Pages custom
+domain, Supabase Site URL + redirect URLs (pages.dev kept), Bulk Redirect pages.dev → .app (302, so switching
+back stays easy). Users keep their accounts but log in again once and find voice/auto-read/language reset
+and the tour again on the new address (browser storage is per address). The Cloudflare dashboard menu
+changes often: direct links like `https://dash.cloudflare.com/?to=/:account/bulk-redirects` work.
+Next: domain email (Resend for sending, Cloudflare Email Routing for receiving; keep the Gmail SMTP settings
+in README to switch back).
+astre-et-brume.com was also bought 2026-10-25 ($10.46/year, auto-renew on) but in the owner's *personal*
+Cloudflare account (desereyscedric@gmail.com), so it cannot be attached to the site. Undecided: from
+2026-11-05 move it to the astre.et.brume account (Registrar → Manage → Configuration; add it there as a Free
+website first; DNSSEC off) and redirect it to .app, or turn off its auto-renew and let it expire 2027-10-25.
 
 ## Public GitHub repo (done 2026-10-25)
 The repo is public. Commits are signed with the owner's GitHub stand-in address

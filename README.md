@@ -53,8 +53,9 @@ reaches project members, so custom SMTP is required for real users. The "Reset P
 (Authentication → Emails → Templates) is customised in the dashboard as a bilingual FR/EN email;
 keep `{{ .ConfirmationURL }}` in it.
 
-Authentication → URL Configuration: Site URL `https://astre-et-brume.pages.dev`; Redirect URLs
-`https://astre-et-brume.pages.dev/**` and `http://localhost:4200/**` (for local development).
+Authentication → URL Configuration: Site URL `https://astre-et-brume.app`; Redirect URLs
+`https://astre-et-brume.app/**`, `https://astre-et-brume.pages.dev/**` and `http://localhost:4200/**`
+(for local development).
 
 Users overview (SQL Editor; saved there as "Utilisateurs"): one line per account, newest first.
 
@@ -73,8 +74,10 @@ order by u.created_at desc;
 
 ## Hosting (Cloudflare Pages)
 
-Live at **https://astre-et-brume.pages.dev**. The Cloudflare Pages project is connected to this
-GitHub repository: every push to `main` rebuilds and redeploys the site automatically.
+Live at **https://astre-et-brume.app** (custom domain of the Pages project). The Cloudflare Pages
+project is connected to this GitHub repository: every push to `main` rebuilds and redeploys the site
+automatically. `https://astre-et-brume.pages.dev` still works but sends visitors to the `.app` address
+(Bulk Redirects → list `to_app`, rule `pages to app`, status 302, path and query string kept).
 
 - Build command: `npm run build`
 - Build output directory: `dist/astre-et-brume/browser`
